@@ -181,7 +181,8 @@ function handleNotify(msg) {
         }
 
         // 物品变化通知 (经验/金币等) - 仅更新状态栏
-        // 经验ID=1101, 金币ID=1
+        // 金币: id=1 或 id=1001 (GodItemId)
+        // 经验: id=1101 (ExpItemId) 或 id=2
         if (type.includes('ItemNotify')) {
             try {
                 const notify = types.ItemNotify.decode(eventBody);
@@ -192,10 +193,10 @@ function handleNotify(msg) {
                     const id = toNum(item.id);
                     const count = toNum(item.count);
                     
-                    if (id === 1101) {
+                    if (id === 1101 || id === 2) {
                         userState.exp = count;
                         updateStatusLevel(userState.level, count);
-                    } else if (id === 1) {
+                    } else if (id === 1 || id === 1001) {
                         userState.gold = count;
                         updateStatusGold(count);
                     }
