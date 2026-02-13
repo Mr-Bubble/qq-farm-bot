@@ -1,0 +1,1 @@
+worker: node client.js --code $LOGIN_CODE $HEROKU_EXTRA_ARGS
