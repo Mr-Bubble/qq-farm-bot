@@ -48,9 +48,15 @@ npm install
 
 你需要从小程序中抓取 code。可以通过抓包工具（如 Fiddler、Charles、mitmproxy 等）获取 WebSocket 连接 URL 中的 `code` 参数。
 
+现已支持qq端扫码登录获取code后自动登录，wx不会支持，不需要再提问（wx无此类漏洞）
+[lkeme/QRLib](https://github.com/lkeme/QRLib) - 扫码登录使用此项目代码，非常感谢。
+
 ### 启动挂机
 
 ```bash
+# QQ小程序 (无任何参数默认qq平台且使用二维码登录)
+node client.js
+
 # QQ小程序 (默认)
 node client.js --code <你的登录code>
 
@@ -73,9 +79,6 @@ node client.js --code <code> --interval 5 --friend-interval 2
 | `--wx` | 使用微信登录 | QQ 小程序 |
 | `--interval` | 自己农场巡查间隔（秒） | 2 |
 | `--friend-interval` | 好友巡查间隔（秒） | 1 |
-| `--name` | 注销实名姓名（配合 `--delete-account`） | — |
-| `--cert-id` | 注销证件号（配合 `--delete-account`） | — |
-| `--cert-type` | 证件类型: `0/414/516/553/555` 或 `china/passport/hk/other` | `0` |
 | `--verify` | 验证 proto 定义是否正确 | — |
 | `--decode` | 进入 PB 数据解码模式 | — |
 
@@ -91,8 +94,8 @@ node client.js --code <code> --interval 5 --friend-interval 2
 在项目根目录创建 `share.txt` 文件，每行一个邀请链接：
 
 ```
-https://xxx?uid=123&openid=xxx&share_source=4&doc_id=2
-https://xxx?uid=456&openid=xxx&share_source=4&doc_id=2
+?uid=123&openid=xxx&share_source=4&doc_id=2
+?uid=456&openid=xxx&share_source=4&doc_id=2
 ```
 
 启动时会自动处理这些邀请链接，申请添加好友。处理完成后文件会被清空。
@@ -233,8 +236,8 @@ const CONFIG = {
 ### src/friend.js
 
 ```javascript
-const HELP_ONLY_WITH_EXP = true;      // 只在有经验时帮助好友
-const ENABLE_PUT_BAD_THINGS = false;  // 是否启用放虫放草功能
+const HELP_ONLY_WITH_EXP = true;      // 只在有经验时帮助好友（已更新可用）
+const ENABLE_PUT_BAD_THINGS = false;  // 是否启用放虫放草功能（暂不可用 必须关闭，否则有严重的话后果）
 ```
 
 ## 注意事项

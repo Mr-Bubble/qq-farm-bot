@@ -29,6 +29,7 @@ const { startSellLoop, stopSellLoop, debugSellFruits } = require('./src/warehous
 const { processInviteCodes } = require('./src/invite');
 const { verifyMode, decodeMode } = require('./src/decode');
 const { emitRuntimeHint, sleep } = require('./src/utils');
+const { getQQFarmCodeByScan } = require('./src/qqQrLogin');
 
 // ============ 帮助信息 ============
 function showHelp() {
@@ -38,11 +39,13 @@ QQ经典农场 挂机脚本
 
 用法:
   node client.js --code <登录code> [--wx] [--interval <秒>] [--friend-interval <秒>]
+  node client.js --qr [--interval <秒>] [--friend-interval <秒>]
   node client.js --verify
   node client.js --decode <数据> [--hex] [--gate] [--type <消息类型>]
 
 参数:
   --code              小程序 login() 返回的临时凭证 (必需)
+  --qr                启动后使用QQ扫码获取登录code（仅QQ平台）
   --wx                使用微信登录 (默认为QQ小程序)
   --interval          自己农场巡查完成后等待秒数, 默认10秒, 最低10秒
   --friend-interval   好友巡查完成后等待秒数, 默认1秒, 最低1秒
@@ -69,6 +72,7 @@ QQ经典农场 挂机脚本
 function parseArgs(args) {
     const options = {
         code: '',
+        qrLogin: false,
         deleteAccountMode: false,
         name: '',
         certId: '',
@@ -78,6 +82,9 @@ function parseArgs(args) {
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--code' && args[i + 1]) {
             options.code = args[++i];
+        }
+        if (args[i] === '--qr') {
+            options.qrLogin = true;
         }
         if (args[i] === '--wx') {
             CONFIG.platform = 'wx';
@@ -97,6 +104,7 @@ function parseArgs(args) {
 // ============ 主函数 ============
 async function main() {
     const args = process.argv.slice(2);
+    let usedQrLogin = false;
 
     // 加载 proto 定义
     await loadProto();
@@ -115,7 +123,19 @@ async function main() {
 
     // 正常挂机模式
     const options = parseArgs(args);
+
+    // QQ 平台支持扫码登录: 显式 --qr，或未传 --code 时自动触发
+    if (!options.code && CONFIG.platform === 'qq' && (options.qrLogin || !args.includes('--code'))) {
+        console.log('[扫码登录] 正在获取二维码...');
+        options.code = await getQQFarmCodeByScan();
+        usedQrLogin = true;
+        console.log(`[扫码登录] 获取成功，code=${options.code.substring(0, 8)}...`);
+    }
+
     if (!options.code) {
+        if (CONFIG.platform === 'wx') {
+            console.log('[参数] 微信模式仍需通过 --code 传入登录凭证');
+        }
         showHelp();
         process.exit(1);
     }
@@ -123,6 +143,11 @@ async function main() {
         console.log('[参数] 注销账号模式必须提供 --name 和 --cert-id');
         showHelp();
         process.exit(1);
+    }
+
+    // 扫码阶段结束后清屏，避免状态栏覆盖二维码区域导致界面混乱
+    if (usedQrLogin && process.stdout.isTTY) {
+        process.stdout.write('\x1b[2J\x1b[H');
     }
 
     // 初始化状态栏
