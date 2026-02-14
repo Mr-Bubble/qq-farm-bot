@@ -365,7 +365,7 @@ function sendLogin(onLoginSuccess) {
                 console.log('');
                 
                 // 发送登录成功通知
-                const loginMsg = `QQ农场登录成功！\nGID: ${userState.gid}\n昵称: ${userState.name}\n等级: ${userState.level}\n金币: ${userState.gold}`;
+                const loginMsg = `QQ农场登录成功！\nGID: ${userState.gid}\n昵称: ${userState.name}\n等级: ${userState.level}\n金币: ${userState.gold}\n偷菜: ${CONFIG.enableSteal ? '已启用' : '已禁用'}`;
                 sendMiaoNotify(loginMsg);
             }
 
