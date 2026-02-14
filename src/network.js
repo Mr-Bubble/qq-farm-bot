@@ -350,6 +350,10 @@ function sendLogin(onLoginSuccess) {
                 console.log(`  昵称:   ${userState.name}`);
                 console.log(`  等级:   ${userState.level}`);
                 console.log(`  金币:   ${userState.gold}`);
+                
+                // 新增：显示偷菜功能状态
+                console.log(`  偷菜:   ${CONFIG.enableSteal ? '已启用' : '已禁用'}`);
+
                 if (reply.time_now_millis) {
                     syncServerTime(toNum(reply.time_now_millis));
                     console.log(`  时间:   ${new Date(toNum(reply.time_now_millis)).toLocaleString()}`);
