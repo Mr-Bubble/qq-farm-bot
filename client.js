@@ -130,12 +130,14 @@ function parseArgs(args) {
             CONFIG.friendCheckInterval = Math.max(sec, 1) * 1000;  // 最低1秒
         }
         if (args[i] === '--plant' && args[i + 1]) {
-            const seedId = parseInt(args[++i]);
+            const inputValue = args[i + 1];
+            const seedId = parseInt(inputValue);
             if (!isNaN(seedId)) {
                 CONFIG.preferredSeedId = seedId;
             } else {
-                console.warn(`[警告] 无效的种子ID: ${args[i]}，将使用自动选择`);
+                console.warn(`[警告] 无效的种子ID: ${inputValue}，将使用自动选择`);
             }
+            i++;
         }
     }
     return options;
