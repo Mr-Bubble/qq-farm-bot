@@ -114,22 +114,17 @@ function parseArgs(args) {
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--code' && args[i + 1]) {
             options.code = args[++i];
-        }
-        if (args[i] === '--qr') {
+        } else if (args[i] === '--qr') {
             options.qrLogin = true;
-        }
-        if (args[i] === '--wx') {
+        } else if (args[i] === '--wx') {
             CONFIG.platform = 'wx';
-        }
-        if (args[i] === '--interval' && args[i + 1]) {
+        } else if (args[i] === '--interval' && args[i + 1]) {
             const sec = parseInt(args[++i]);
             CONFIG.farmCheckInterval = Math.max(sec, 1) * 1000;
-        }
-        if (args[i] === '--friend-interval' && args[i + 1]) {
+        } else if (args[i] === '--friend-interval' && args[i + 1]) {
             const sec = parseInt(args[++i]);
             CONFIG.friendCheckInterval = Math.max(sec, 1) * 1000;  // 最低1秒
-        }
-        if (args[i] === '--plant' && args[i + 1]) {
+        } else if (args[i] === '--plant' && args[i + 1]) {
             const inputValue = args[i + 1];
             const seedId = parseInt(inputValue);
             if (!isNaN(seedId)) {
