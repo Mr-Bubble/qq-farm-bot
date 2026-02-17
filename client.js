@@ -69,8 +69,8 @@ QQ经典农场 挂机脚本
 ====================
 
 用法:
-  node client.js --code <登录code> [--wx] [--interval <秒>] [--friend-interval <秒>]
-  node client.js --qr [--interval <秒>] [--friend-interval <秒>]
+  node client.js --code <登录code> [--wx] [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>]
+  node client.js --qr [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>]
   node client.js --verify
   node client.js --decode <数据> [--hex] [--gate] [--type <消息类型>]
 
@@ -78,8 +78,9 @@ QQ经典农场 挂机脚本
   --code              小程序 login() 返回的临时凭证 (必需)
   --qr                启动后使用QQ扫码获取登录code（仅QQ平台）
   --wx                使用微信登录 (默认为QQ小程序)
-  --interval          自己农场巡查完成后等待秒数, 默认10秒, 最低10秒
-  --friend-interval   好友巡查完成后等待秒数, 默认1秒, 最低1秒
+  --interval          自己农场巡查完成后等待秒数, 默认1秒, 最低1秒
+  --friend-interval   好友巡查完成后等待秒数, 默认10秒, 最低1秒
+  --plant             指定种植的种子ID (例如: 20002=白萝卜, 20003=胡萝卜)
   --verify            验证proto定义
   --decode            解码PB数据 (运行 --decode 无参数查看详细帮助)
 
@@ -113,20 +114,25 @@ function parseArgs(args) {
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--code' && args[i + 1]) {
             options.code = args[++i];
-        }
-        if (args[i] === '--qr') {
+        } else if (args[i] === '--qr') {
             options.qrLogin = true;
-        }
-        if (args[i] === '--wx') {
+        } else if (args[i] === '--wx') {
             CONFIG.platform = 'wx';
-        }
-        if (args[i] === '--interval' && args[i + 1]) {
+        } else if (args[i] === '--interval' && args[i + 1]) {
             const sec = parseInt(args[++i]);
             CONFIG.farmCheckInterval = Math.max(sec, 1) * 1000;
-        }
-        if (args[i] === '--friend-interval' && args[i + 1]) {
+        } else if (args[i] === '--friend-interval' && args[i + 1]) {
             const sec = parseInt(args[++i]);
             CONFIG.friendCheckInterval = Math.max(sec, 1) * 1000;  // 最低1秒
+        } else if (args[i] === '--plant' && args[i + 1]) {
+            const inputValue = args[i + 1];
+            const seedId = parseInt(inputValue);
+            if (!isNaN(seedId)) {
+                CONFIG.preferredSeedId = seedId;
+            } else {
+                console.warn(`[警告] 无效的种子ID: ${inputValue}，将使用自动选择`);
+            }
+            i++;
         }
     }
     return options;
