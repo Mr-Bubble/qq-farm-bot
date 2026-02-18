@@ -19,6 +19,7 @@ let serverSeq = 0;
 let heartbeatTimer = null;
 let pendingCallbacks = new Map();
 let _loginBoxOpen = false;
+let _pendingLoginMsg = null;
 
 // ============ 用户状态 (登录后设置) ============
 const userState = {
@@ -368,9 +369,8 @@ function sendLogin(onLoginSuccess) {
                 }
                 _loginBoxOpen = true;
                 
-                // 发送登录成功通知
-                const loginMsg = `QQ农场登录成功！\nGID: ${userState.gid}\n昵称: ${userState.name}\n等级: ${userState.level}\n金币: ${userState.gold}\n偷菜: ${CONFIG.enableSteal ? '已启用' : '已禁用'}`;
-                sendMiaoNotify(loginMsg);
+                // 暂存登录消息，等首次巡田获取到土地信息后一起发送
+                _pendingLoginMsg = `QQ农场登录成功！\nGID: ${userState.gid}\n昵称: ${userState.name}\n等级: ${userState.level}\n金币: ${userState.gold}\n偷菜: ${CONFIG.enableSteal ? '已启用' : '已禁用'}`;
             }
 
             startHeartbeat();
@@ -478,6 +478,14 @@ function completeLoginBox(landStats) {
     }
     console.log('===============================');
     console.log('');
+    // 发送包含土地信息的登录成功通知
+    if (_pendingLoginMsg !== null) {
+        const landLine = landStats
+            ? `\n土地: 总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`
+            : '';
+        sendMiaoNotify(_pendingLoginMsg + landLine);
+        _pendingLoginMsg = null;
+    }
 }
 
 module.exports = {
