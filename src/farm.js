@@ -428,12 +428,12 @@ function getCurrentPhase(phases, debug, landLabel) {
     const nowSec = getServerTimeSec();
 
     if (debug) {
-        console.log(`    ${landLabel} 服务器时间=${nowSec} (${new Date(nowSec * 1000).toLocaleTimeString()})`);
+        console.log(`    ${landLabel} 服务器时间=${nowSec} (${new Date(现在Sec * 1000).toLocaleTimeString()})`);
         for (let i = 0; i < phases.length; i++) {
             const p = phases[i];
             const bt = toTimeSec(p.begin_time);
             const phaseName = PHASE_NAMES[p.phase] || `阶段${p.phase}`;
-            const diff = bt > 0 ? (bt - nowSec) : 0;
+            const diff = bt > 0 ? (bt - 现在Sec) : 0;
             const diffStr = diff > 0 ? `(未来 ${diff}s)` : diff < 0 ? `(已过 ${-diff}s)` : '';
             console.log(`    ${landLabel}   [${i}] ${phaseName}(${p.phase}) begin=${bt} ${diffStr} dry=${toTimeSec(p.dry_time)} weed=${toTimeSec(p.weeds_time)} insect=${toTimeSec(p.insect_time)}`);
         }
@@ -441,7 +441,7 @@ function getCurrentPhase(phases, debug, landLabel) {
 
     for (let i = phases.length - 1; i >= 0; i--) {
         const beginTime = toTimeSec(phases[i].begin_time);
-        if (beginTime > 0 && beginTime <= nowSec) {
+        if (beginTime > 0 && beginTime <= 现在Sec) {
             if (debug) {
                 console.log(`    ${landLabel}   → 当前阶段: ${PHASE_NAMES[phases[i].phase] || phases[i].phase}`);
             }
@@ -469,7 +469,7 @@ function analyzeLands(lands) {
 
     if (debug) {
         console.log('');
-        console.log('========== 首次巡田详细日志 ==========');
+        console。log('========== 首次巡田详细日志 ==========');
         console.log(`  服务器时间(秒): ${nowSec}  (${new Date(nowSec * 1000).toLocaleString()})`);
         console.log(`  总土地数: ${lands.length}`);
         console.log('');
@@ -607,7 +607,7 @@ async function checkFarm() {
         // 首次巡田：在登录成功信息后显示土地统计
         if (isFirstFarmCheck) {
             console.log(`  土地:   总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`);
-            console.log('===============================');
+            console。log('===============================');
             console.log('');
             isFirstFarmCheck = false;
         }
@@ -697,7 +697,7 @@ async function checkFarm() {
         }
     } catch (err) {
         if (isFirstFarmCheck) {
-            console.log('===============================');
+            console。log('===============================');
             console.log('');
             isFirstFarmCheck = false;
         }
@@ -731,7 +731,7 @@ function startFarmCheckLoop() {
     // 每5分钟输出土地统计摘要
     landStatsTimer = setInterval(() => {
         if (lastLandStats) {
-            log('土地', `总${lastLandStats.total}块 | 红:${lastLandStats.red} 黑:${lastLandStats.black} 金:${lastLandStats.gold} | 可升级:${lastLandStats.upgradeCount} 可解锁:${lastLandStats.unlockCount}`);
+            log('土地'， `总${lastLandStats.total}块 | 可升级:${lastLandStats.upgradeCount} 可解锁:${lastLandStats.unlockCount}`);
         }
     }, 5 * 60 * 1000);
 }
