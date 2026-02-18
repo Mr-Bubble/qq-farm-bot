@@ -113,7 +113,7 @@ async function removePlant(landIds) {
 /**
  * 解锁土地 - 逐块进行，避免批量拒绝
  * @param {number[]} landIds - 要解锁的土地ID列表
- * @returns {Promise<number>} 成功解锁的土地数量
+ * @returns {Promise<{successCount: number, successIds: number[]}>} 成功解锁的土地数量和ID列表
  */
 async function unlockLand(landIds) {
     let successCount = 0;
@@ -141,7 +141,7 @@ async function unlockLand(landIds) {
 /**
  * 升级土地 - 逐块进行，避免批量拒绝
  * @param {number[]} landIds - 要升级的土地ID列表
- * @returns {Promise<number>} 成功升级的土地数量
+ * @returns {Promise<{successCount: number, successIds: number[]}>} 成功升级的土地数量和ID列表
  */
 async function upgradeLand(landIds) {
     let successCount = 0;
