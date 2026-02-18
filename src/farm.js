@@ -15,6 +15,8 @@ let isCheckingFarm = false;
 let isFirstFarmCheck = true;
 let farmCheckTimer = null;
 let farmLoopRunning = false;
+let landStatsTimer = null;
+let lastLandStats = null;
 
 // ============ 农场 API ============
 
@@ -393,6 +395,31 @@ async function autoPlantEmptyLands(deadLandIds, emptyLandIds, unlockedLandCount)
 // ============ 土地分析 ============
 
 /**
+ * 统计各类型土地数量
+ */
+function getLandTypeCounts(lands) {
+    let total = 0, red = 0, black = 0, gold = 0;
+    let upgradeCount = 0, unlockCount = 0;
+
+    for (const land of lands) {
+        total++;
+        if (land.could_unlock && !land.unlocked) {
+            unlockCount++;
+        }
+        if (!land.unlocked) continue;
+
+        const level = toNum(land.level);
+        if (level === 1) red++;
+        else if (level === 2) black++;
+        else if (level === 3) gold++;
+
+        if (land.could_upgrade) upgradeCount++;
+    }
+
+    return { total, red, black, gold, upgradeCount, unlockCount };
+}
+
+/**
  * 根据服务器时间确定当前实际生长阶段
  */
 function getCurrentPhase(phases, debug, landLabel) {
@@ -574,6 +601,15 @@ async function checkFarm() {
         }
 
         const lands = landsReply.lands;
+        const landStats = getLandTypeCounts(lands);
+        lastLandStats = landStats;
+
+        // 首次巡田：在登录成功信息后显示土地统计
+        if (isFirstFarmCheck) {
+            console.log(`  土地: 总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`);
+            console.log('');
+        }
+
         const status = analyzeLands(lands);
         const unlockedLandCount = lands.filter(land => land && land.unlocked).length;
         isFirstFarmCheck = false;
@@ -619,17 +655,7 @@ async function checkFarm() {
             } catch (e) { logWarn('收获', e.message); }
         }
 
-        // 铲除 + 种植 + 施肥（需要顺序执行）
-        const allDeadLands = [...status.dead, ...harvestedLandIds];
-        const allEmptyLands = [...status.empty];
-        if (allDeadLands.length > 0 || allEmptyLands.length > 0) {
-            try {
-                await autoPlantEmptyLands(allDeadLands, allEmptyLands, unlockedLandCount);
-                actions.push(`种植${allDeadLands.length + allEmptyLands.length}`);
-            } catch (e) { logWarn('种植', e.message); }
-        }
-
-        // 解锁土地（如果配置开启）
+        // 解锁土地（如果配置开启）- 收割后、种植前执行
         if (CONFIG.autoExpandLand && status.eligibleForUnlock.length > 0) {
             try {
                 const { successCount, successIds } = await unlockLand(status.eligibleForUnlock);
@@ -641,7 +667,7 @@ async function checkFarm() {
             } catch (e) { logWarn('解锁', e.message); }
         }
 
-        // 升级土地（如果配置开启）
+        // 升级土地（如果配置开启）- 收割后、种植前执行
         if (CONFIG.autoUpgradeRedLand && status.eligibleForUpgrade.length > 0) {
             try {
                 const { successCount, successIds } = await upgradeLand(status.eligibleForUpgrade);
@@ -651,6 +677,16 @@ async function checkFarm() {
                     log('农场', `⬆️ 已自动升级 ${successCount} 块土地: [${successIds.join(', ')}]`);
                 }
             } catch (e) { logWarn('升级', e.message); }
+        }
+
+        // 铲除 + 种植 + 施肥（需要顺序执行）
+        const allDeadLands = [...status.dead, ...harvestedLandIds];
+        const allEmptyLands = [...status.empty];
+        if (allDeadLands.length > 0 || allEmptyLands.length > 0) {
+            try {
+                await autoPlantEmptyLands(allDeadLands, allEmptyLands, unlockedLandCount);
+                actions.push(`种植${allDeadLands.length + allEmptyLands.length}`);
+            } catch (e) { logWarn('种植', e.message); }
         }
 
         // 输出一行日志
@@ -685,6 +721,13 @@ function startFarmCheckLoop() {
 
     // 延迟 2 秒后启动循环
     farmCheckTimer = setTimeout(() => farmCheckLoop(), 2000);
+
+    // 每5分钟输出土地统计摘要
+    landStatsTimer = setInterval(() => {
+        if (lastLandStats) {
+            log('农场', `土地统计: 总${lastLandStats.total}块 | 可升级:${lastLandStats.upgradeCount} 可解锁:${lastLandStats.unlockCount}`);
+        }
+    }, 5 * 60 * 1000);
 }
 
 /**
@@ -709,6 +752,7 @@ function onLandsChangedPush(lands) {
 function stopFarmCheckLoop() {
     farmLoopRunning = false;
     if (farmCheckTimer) { clearTimeout(farmCheckTimer); farmCheckTimer = null; }
+    if (landStatsTimer) { clearInterval(landStatsTimer); landStatsTimer = null; }
     networkEvents.removeListener('landsChanged', onLandsChangedPush);
 }
 
