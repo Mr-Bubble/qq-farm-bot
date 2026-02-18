@@ -365,8 +365,6 @@ function sendLogin(onLoginSuccess) {
                     syncServerTime(toNum(reply.time_now_millis));
                     console.log(`  时间:   ${new Date(toNum(reply.time_now_millis)).toLocaleString()}`);
                 }
-                console.log('===============================');
-                console.log('');
                 
                 // 发送登录成功通知
                 const loginMsg = `QQ农场登录成功！\nGID: ${userState.gid}\n昵称: ${userState.name}\n等级: ${userState.level}\n金币: ${userState.gold}\n偷菜: ${CONFIG.enableSteal ? '已启用' : '已禁用'}`;

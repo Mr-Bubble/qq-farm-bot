@@ -409,9 +409,9 @@ function getLandTypeCounts(lands) {
         if (!land.unlocked) continue;
 
         const level = toNum(land.level);
-        if (level === 1) red++;
-        else if (level === 2) black++;
-        else if (level === 3) gold++;
+        if (level === 2) red++;
+        else if (level === 3) black++;
+        else if (level === 4) gold++;
 
         if (land.could_upgrade) upgradeCount++;
     }
@@ -606,13 +606,14 @@ async function checkFarm() {
 
         // 首次巡田：在登录成功信息后显示土地统计
         if (isFirstFarmCheck) {
-            console.log(`  土地: 总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`);
+            console.log(`  土地:   总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`);
+            console.log('===============================');
             console.log('');
+            isFirstFarmCheck = false;
         }
 
         const status = analyzeLands(lands);
         const unlockedLandCount = lands.filter(land => land && land.unlocked).length;
-        isFirstFarmCheck = false;
 
         // 构建状态摘要
         const statusParts = [];
@@ -695,6 +696,11 @@ async function checkFarm() {
             log('农场', `[${statusParts.join(' ')}]${actionStr}${!hasWork ? ' 无需操作' : ''}`)
         }
     } catch (err) {
+        if (isFirstFarmCheck) {
+            console.log('===============================');
+            console.log('');
+            isFirstFarmCheck = false;
+        }
         logWarn('巡田', `检查失败: ${err.message}`);
     } finally {
         isCheckingFarm = false;
@@ -725,7 +731,7 @@ function startFarmCheckLoop() {
     // 每5分钟输出土地统计摘要
     landStatsTimer = setInterval(() => {
         if (lastLandStats) {
-            log('农场', `土地统计: 总${lastLandStats.total}块 | 可升级:${lastLandStats.upgradeCount} 可解锁:${lastLandStats.unlockCount}`);
+            log('土地', `总${lastLandStats.total}块 | 红:${lastLandStats.red} 黑:${lastLandStats.black} 金:${lastLandStats.gold} | 可升级:${lastLandStats.upgradeCount} 可解锁:${lastLandStats.unlockCount}`);
         }
     }, 5 * 60 * 1000);
 }
