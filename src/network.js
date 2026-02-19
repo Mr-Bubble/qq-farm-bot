@@ -315,6 +315,8 @@ function handleNotify(msg) {
 }
 
 // ============ 登录 ============
+const LOGIN_TIMEOUT_MS = 30000; // 30秒无响应则视为登录超时
+
 function sendLogin(onLoginSuccess) {
     const body = types.LoginRequest.encode(types.LoginRequest.create({
         sharer_id: toLong(0),
@@ -328,7 +330,19 @@ function sendLogin(onLoginSuccess) {
         },
     })).finish();
 
+    // 在发送前记录 seq，以便超时时可精确清除回调
+    const loginSeq = clientSeq;
+    const loginTimeoutTimer = setTimeout(() => {
+        if (pendingCallbacks.has(loginSeq)) {
+            pendingCallbacks.delete(loginSeq);
+            log('登录', '超时: 服务器未响应登录请求，将重新扫码登录');
+            sendMiaoNotify('QQ农场登录超时，正在重连...');
+            networkEvents.emit('disconnected', { reason: 'login_timeout', message: '登录超时' });
+        }
+    }, LOGIN_TIMEOUT_MS);
+
     sendMsg('gamepb.userpb.UserService', 'Login', body, (err, bodyBytes, meta) => {
+        clearTimeout(loginTimeoutTimer);
         if (err) {
             log('登录', `失败: ${err.message}`);
             sendMiaoNotify(`QQ农场登录失败: ${err.message}`);
@@ -426,6 +440,10 @@ function startHeartbeat() {
 
 // ============ WebSocket 连接 ============
 function connect(code, onLoginSuccess) {
+    // 每次新连接重置序列号，确保会话独立
+    clientSeq = 1;
+    serverSeq = 0;
+
     const url = `${CONFIG.serverUrl}?platform=${CONFIG.platform}&os=${CONFIG.os}&ver=${CONFIG.clientVersion}&code=${code}&openID=`;
 
     ws = new WebSocket(url, {
