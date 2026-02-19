@@ -653,6 +653,17 @@ async function checkFarm() {
             } catch (e) { logWarn('收获', e.message); }
         }
 
+        // 将刚收获且可升级的土地加入升级列表（无论之前是否有作物）
+        if (CONFIG.autoUpgradeRedLand && harvestedLandIds.length > 0) {
+            const harvestedSet = new Set(harvestedLandIds);
+            const postHarvestEligible = lands
+                .filter(land => harvestedSet.has(toNum(land.id)) && land.could_upgrade && land.unlocked)
+                .map(land => toNum(land.id));
+            if (postHarvestEligible.length > 0) {
+                status.eligibleForUpgrade.push(...postHarvestEligible);
+            }
+        }
+
         // 解锁土地（如果配置开启）- 收割后、种植前执行
         if (CONFIG.autoExpandLand && status.eligibleForUnlock.length > 0) {
             try {
@@ -684,9 +695,10 @@ async function checkFarm() {
         }
 
         // 铲除 + 种植 + 施肥（需要顺序执行）
-        const allDeadLands = [...status.dead, ...harvestedLandIds];
         // 排除升级失败的土地，等下一轮再重试升级
         const failedUpgradeSet = new Set(failedUpgradeIds);
+        // status.dead 中的枯死土地不在升级候选列表，无需过滤；仅对收获后追加的候选土地过滤
+        const allDeadLands = [...status.dead, ...harvestedLandIds.filter(id => !failedUpgradeSet.has(id))];
         const allEmptyLands = status.empty.filter(id => !failedUpgradeSet.has(id));
         if (allDeadLands.length > 0 || allEmptyLands.length > 0) {
             try {
@@ -773,6 +785,22 @@ async function expandLandsOnLogin() {
         if (!landsReply.lands || landsReply.lands.length === 0) return;
 
         const status = analyzeLands(landsReply.lands);
+
+        // 先收获可收获且待升级的土地，确保升级操作能执行（无论土地上是否有作物）
+        if (CONFIG.autoUpgradeRedLand && status.harvestable.length > 0) {
+            const harvestableForUpgrade = status.harvestable.filter(id => {
+                const land = landsReply.lands.find(l => toNum(l.id) === id);
+                return land && land.could_upgrade && land.unlocked;
+            });
+            if (harvestableForUpgrade.length > 0) {
+                try {
+                    await harvest(harvestableForUpgrade);
+                    log('农场', `🌾 登录后收获 ${harvestableForUpgrade.length} 块待升级土地`);
+                    // 可收获土地有作物，不在 eligibleForUpgrade 中，直接追加无重复
+                    status.eligibleForUpgrade.push(...harvestableForUpgrade);
+                } catch (e) { logWarn('收获', e.message); }
+            }
+        }
 
         if (CONFIG.autoExpandLand && status.eligibleForUnlock.length > 0) {
             const { successCount, successIds } = await unlockLand(status.eligibleForUnlock);
