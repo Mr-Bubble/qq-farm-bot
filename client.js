@@ -143,6 +143,7 @@ let isReconnecting = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 5000; // 5秒后重连
+let progressInterval = null; // 等级经验进度定时器（需在断线时清除）
 
 async function startBot(initialOptions) {
     const options = { ...initialOptions };
@@ -197,7 +198,8 @@ async function startBot(initialOptions) {
         const { getLevelExpProgress } = require('./src/gameConfig');
         const { log } = require('./src/utils');
 
-        setInterval(() => {
+        if (progressInterval) clearInterval(progressInterval);
+        progressInterval = setInterval(() => {
             if (statusData.level > 0) {
                 const progress = getLevelExpProgress(statusData.level, statusData.exp);
                 // 计算百分比
@@ -225,6 +227,9 @@ async function handleDisconnect(event) {
     cleanupTaskSystem();
     stopSellLoop();
     cleanup();
+    
+    // 清除进度定时器
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
     
     // 关闭 WebSocket (close() 对已关闭的连接是安全的)
     const ws = getWs();
@@ -325,6 +330,7 @@ async function main() {
         stopFriendCheckLoop();
         cleanupTaskSystem();
         stopSellLoop();
+        if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
         cleanup();
         const ws = getWs();
         if (ws) ws.close();
