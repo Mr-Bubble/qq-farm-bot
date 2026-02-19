@@ -487,8 +487,8 @@ function analyzeLands(lands) {
         const plant = land.plant;
         const isEmpty = !plant || !plant.phases || plant.phases.length === 0;
         
-        // 检查是否可以升级 (已解锁的土地)
-        if (land.could_upgrade && land.unlocked) {
+        // 检查是否可以升级 (已解锁且空闲的土地)
+        if (land.could_upgrade && land.unlocked && isEmpty) {
             result.eligibleForUpgrade.push(id);
             if (debug) console.log(`  土地#${id}: 可升级`);
         }
