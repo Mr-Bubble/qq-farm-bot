@@ -1,5 +1,6 @@
 const axios = require('axios');
 const qrcodeTerminal = require('qrcode-terminal');
+const { sendMiaoNotify } = require('./utils');
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const QUA = 'V1_HT5_QDT_0.70.2209190_x64_0_DEV_D';
@@ -63,11 +64,14 @@ async function getAuthCode(ticket) {
 }
 
 function printQr(url) {
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
     console.log('');
     console.log('[扫码登录] 请用 QQ 扫描下方二维码确认登录:');
     qrcodeTerminal.generate(url, { small: true });
-    console.log(`[扫码登录] 若二维码显示异常，可直接打开链接: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`);
+    console.log(`[扫码登录] 若二维码显示异常，可直接打开链接: ${qrImageUrl}`);
     console.log('');
+    // 推送二维码链接，方便在服务器（如 Heroku）上无法直接查看日志时也能扫码重连
+    sendMiaoNotify(`QQ农场需要扫码登录，请扫描二维码:\n${qrImageUrl}`).catch(() => {});
 }
 
 async function getQQFarmCodeByScan(options = {}) {
