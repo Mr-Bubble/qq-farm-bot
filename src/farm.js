@@ -151,28 +151,16 @@ async function unlockLand(landIds) {
  * @returns {Promise<{successCount: number, successIds: number[]}>} 成功升级的土地数量和ID列表
  */
 async function upgradeLand(landIds) {
-    let successCount = 0;
-    const successIds = [];
-    const failedIds = [];
-    
+    let results = [];
     for (const landId of landIds) {
-        try {
-            const body = types.UpgradeLandRequest.encode(types.UpgradeLandRequest.create({
-                land_ids: [toLong(landId)],
-            })).finish();
-            const { body: replyBody } = await sendMsgAsync('gamepb.plantpb.PlantService', 'UpgradeLand', body);
-            types.UpgradeLandReply.decode(replyBody);
-            successCount++;
-            successIds.push(landId);
-            log('升级', `✓ 土地#${landId} 已升级`);
-        } catch (e) {
-            logWarn('升级', `土地#${landId} 失败: ${e.message}`);
-            failedIds.push(landId);
-        }
-        if (landIds.length > 1) await sleep(200);  // 200ms 间隔
+        const body = types.UpgradeLandRequest.encode(types.UpgradeLandRequest.create({
+            land_ids: [toLong(landId)],
+        })).finish();
+        const { body: replyBody } = await sendMsgAsync('gamepb.plantpb.PlantService', 'UpgradeLand', body);
+        results.push(types.UpgradeLandReply.decode(replyBody));
+        await sleep(200);
     }
-    
-    return { successCount, successIds, failedIds };
+    return results;
 }
 
 // ============ 商店 API ============
@@ -695,19 +683,23 @@ async function checkFarm() {
             });
             if (toUpgrade.length > 0) {
                 try {
-                    const { successCount, successIds, failedIds } = await upgradeLand(toUpgrade);
-                    const failedTime = Date.now();
-                    for (const id of failedIds) upgradeRetryCooldown.set(id, failedTime);
+                    const replies = await upgradeLand(toUpgrade);
+                    // 所有升级成功
+                    const successIds = toUpgrade;
+                    const successCount = successIds.length;
                     for (const id of successIds) upgradeRetryCooldown.delete(id);
                     if (successCount > 0) {
                         actions.push(`升级${successCount}`);
                         // 添加明确的提醒日志，便于操作员注意
                         log('农场', `⬆️ 已自动升级 ${successCount} 块土地: [${successIds.join(', ')}]`);
-                    } else {
-                        logWarn('农场', `升级土地失败: ${toUpgrade.length} 块土地均未成功升级，10分钟后重试`);
                     }
-                    failedUpgradeIds = failedIds;
-                } catch (e) { logWarn('升级', e.message); }
+                } catch (e) {
+                    // 升级失败，将所有土地加入冷却
+                    const failedTime = Date.now();
+                    for (const id of toUpgrade) upgradeRetryCooldown.set(id, failedTime);
+                    failedUpgradeIds = toUpgrade;
+                    logWarn('升级', e.message);
+                }
             }
         }
 
