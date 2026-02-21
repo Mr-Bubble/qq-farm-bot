@@ -141,11 +141,18 @@ function parseArgs(args) {
 // ============ 主函数 ============
 let isReconnecting = false;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 1;
-const RECONNECT_DELAY_MS = 5000; // 5秒后重连
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_LONG_WAIT_MS = parseInt(process.env.RECONNECT_LONG_WAIT_MS) || 60 * 60 * 1000; // 默认1小时
 let progressInterval = null; // 等级经验进度定时器（需在断线时清除）
 let loginTimeoutAttempts = 0;
 const MAX_LOGIN_TIMEOUT_ATTEMPTS = 3;
+
+function calcBackoffDelayMs(attempt) {
+    const base = 60000;
+    const cap = 300000;
+    if (attempt < 1) attempt = 1;
+    return Math.min(base * Math.pow(2, attempt - 1), cap);
+}
 
 async function startBot(initialOptions) {
     const options = { ...initialOptions };
@@ -255,8 +262,9 @@ async function handleDisconnect(event) {
         }
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
-            console.log(`[重连] 将在 ${RECONNECT_DELAY_MS / 1000} 秒后尝试扫码重新登录 (第 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次)`);
-            await sleep(RECONNECT_DELAY_MS);
+            const delayMs = calcBackoffDelayMs(reconnectAttempts);
+            console.log(`[重连] 将在 ${delayMs / 1000} 秒后尝试扫码重新登录 (第 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次)`);
+            await sleep(delayMs);
             
             isReconnecting = false;
             try {
@@ -268,7 +276,8 @@ async function handleDisconnect(event) {
                 isReconnecting = false;
             }
         } else {
-            console.error('[重连] 已达到最大重试次数，退出');
+            console.error(`[重连] 已达到最大重试次数 (${MAX_RECONNECT_ATTEMPTS})，等待 ${RECONNECT_LONG_WAIT_MS / 1000} 秒后退出`);
+            await sleep(RECONNECT_LONG_WAIT_MS);
             cleanupStatusBar();
             process.exit(1);
         }
