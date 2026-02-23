@@ -26,7 +26,7 @@ const CONFIG = {
     // 每日最多自动开启的化肥礼包数量，0 表示不限，默认不限
     fertilizerPackDailyLimit: parseInt(process.env.FERTILIZER_PACK_DAILY_LIMIT) || 0,
 
-    // 点券购买化肥礼包开关：设置为 'true' 才开启，默认关闭
+    // 点券购买化肥礼包开关：设置为 'true' 才开启，默认开启
     autoBuyFertilizerPack: process.env.AUTO_BUY_FERTILIZER_PACK === 'true',
     // 每日最多购买化肥礼包次数（0 不限），默认 5
     fertilizerPackBuyDailyLimit: parseInt(process.env.FERTILIZER_PACK_BUY_DAILY_LIMIT) || 5,
