@@ -436,6 +436,13 @@ async function buyFertilizerPacks(bagItems) {
         }
     }
 
+    // 容器上限检查：普通容器已达到 990 小时上限时，无需继续购买
+    const containerHours = getContainerHoursFromBagItems(bagItems);
+    if (containerHours.normal >= FERTILIZER_CONTAINER_LIMIT_HOURS) {
+        log('化肥购买', `普通容器(${containerHours.normal}h)已达到 ${FERTILIZER_CONTAINER_LIMIT_HOURS} 小时上限，跳过购买`);
+        return 0;
+    }
+
     // 记录本次尝试时间（放在余额检查之前，避免点券不足时频繁触发）
     lastBuyAttemptMs = nowMs;
 
