@@ -7,7 +7,7 @@
  *
  * 配置（通过环境变量）：
  *   AUTO_USE_FERTILIZER=true        - 开启功能（默认关闭）
- *   FERTILIZER_TARGET_COUNT=100     - 化肥道具保留目标数量（默认 100）
+ *   FERTILIZER_TARGET_COUNT=0     - 化肥道具保留目标数量（默认 0）
  *   FERTILIZER_PACK_DAILY_LIMIT=0   - 每日最多开启礼包数（0 不限，默认 0）
  */
 
