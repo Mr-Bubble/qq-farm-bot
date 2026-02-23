@@ -54,6 +54,7 @@ const { startFriendCheckLoop, stopFriendCheckLoop } = require('./src/friend');
 const { initTaskSystem, cleanupTaskSystem } = require('./src/task');
 const { initStatusBar, cleanupStatusBar, setStatusPlatform } = require('./src/status');
 const { startSellLoop, stopSellLoop, debugSellFruits } = require('./src/warehouse');
+const { startFertilizerLoop, stopFertilizerLoop } = require('./src/fertilizer');
 const { processInviteCodes } = require('./src/invite');
 const { verifyMode, decodeMode } = require('./src/decode');
 const { emitRuntimeHint, sleep } = require('./src/utils');
@@ -198,6 +199,7 @@ async function startBot(initialOptions) {
         startFarmCheckLoop();
         startFriendCheckLoop();
         initTaskSystem();
+        startFertilizerLoop();  // 化肥自动化（需 AUTO_USE_FERTILIZER=true 才生效）
         
         // 启动时立即检查一次背包
         setTimeout(() => debugSellFruits(), 5000);
@@ -235,6 +237,7 @@ async function handleDisconnect(event) {
     stopFarmCheckLoop();
     stopFriendCheckLoop();
     cleanupTaskSystem();
+    stopFertilizerLoop();
     stopSellLoop();
     cleanup();
     
@@ -350,6 +353,7 @@ async function main() {
         stopFarmCheckLoop();
         stopFriendCheckLoop();
         cleanupTaskSystem();
+        stopFertilizerLoop();
         stopSellLoop();
         if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
         cleanup();

@@ -18,6 +18,13 @@ const CONFIG = {
 
     // 土地自动升级开关：设置为 'true' 才开启，默认关闭
     autoUpgradeLand: process.env.AUTO_UPGRADE_LAND === 'true',
+
+    // 化肥自动化开关：设置为 'true' 才开启，默认关闭
+    autoUseFertilizer: process.env.AUTO_USE_FERTILIZER === 'true',
+    // 化肥道具保留目标数量：背包中化肥道具超过此数时自动使用多余部分（填充容器），默认 100
+    fertilizerTargetCount: parseInt(process.env.FERTILIZER_TARGET_COUNT) || 100,
+    // 每日最多自动开启的化肥礼包数量，0 表示不限，默认不限
+    fertilizerPackDailyLimit: parseInt(process.env.FERTILIZER_PACK_DAILY_LIMIT) || 0,
     
     // 喵提醒推送配置：从环境变量读取 MIAO_ID，用于连接失败或code失效时推送通知
     miaoId: process.env.MIAO_ID, 
