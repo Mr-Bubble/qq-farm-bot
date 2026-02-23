@@ -74,7 +74,7 @@ const ORGANIC_CONTAINER_ID = 1012;
 // ============ 商城化肥礼包商品 ID ============
 
 /** 商城中普通化肥礼包的 goods_id（MallService） */
-const goods_id = 100003;
+const NORMAL_FERTILIZER_MALL_GOODS_ID = 100003;
 
 /** 普通化肥道具 ID -> 每个道具填充的小时数 */
 const NORMAL_FERTILIZER_ITEM_HOURS = new Map([
