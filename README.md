@@ -14,6 +14,7 @@
 - **自动除虫** — 检测并消灭害虫
 - **自动浇水** — 检测缺水作物并浇水
 - **自动出售** — 每分钟自动出售仓库中的果实
+- **化肥自动化** — 自动开启背包中的化肥礼包，并使用多余的化肥道具以填充容器（需配置开启）
 
 ### 好友农场
 - **好友巡查** — 自动巡查好友农场
@@ -89,6 +90,10 @@ node client.js --code <code> --interval 5 --friend-interval 2
 | `HEROKU_EXTRA_ARGS` | 代替额外参数（`--interval 1 --friend-interval 30`） | — |
 | `ENABLE_STEAL` | 偷菜 | true |
 | `MIAO_ID` | 喵通知ID | — |
+| `AUTO_UPGRADE_LAND` | 自动升级土地 | false |
+| `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | false |
+| `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 0 |
+| `FERTILIZER_PACK_DAILY_LIMIT` | 每日最多开启礼包数（0 = 不限） | 0 |
 
 ### 邀请码功能（微信环境）
 
@@ -161,6 +166,7 @@ node tools/calc-exp-yield.js --input tools/seed-shop-merged-export.json
 │   ├── task.js            # 任务系统: 自动领取任务奖励
 │   ├── status.js          # 状态栏: 终端顶部固定显示用户状态
 │   ├── warehouse.js       # 仓库系统: 自动出售果实
+│   ├── fertilizer.js      # 化肥自动化: 开礼包/使用多余道具
 │   ├── invite.js          # 邀请码处理: 自动申请好友
 │   ├── gameConfig.js      # 游戏配置: 等级经验表/植物数据
 │   └── decode.js          # PB 解码/验证工具模式
