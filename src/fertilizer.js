@@ -7,11 +7,11 @@
  *   3. 背包中化肥道具数量超过目标阈值时，自动使用多余部分（填充化肥容器）
  *
  * 配置（通过环境变量）：
- *   AUTO_USE_FERTILIZER=true            - 开启开礼包/使用道具功能（默认关闭）
+ *   AUTO_USE_FERTILIZER=true            - 开启开礼包/使用道具功能（默认开启）
  *   FERTILIZER_TARGET_COUNT=0           - 化肥道具保留目标数量（默认 0）
  *   FERTILIZER_PACK_DAILY_LIMIT=0       - 每日最多开启礼包数（0 不限，默认 0）
- *   AUTO_BUY_FERTILIZER_PACK=true       - 开启点券购买礼包功能（默认关闭）
- *   FERTILIZER_PACK_BUY_DAILY_LIMIT=5   - 每日最多购买礼包次数（0 不限，默认 5）
+ *   AUTO_BUY_FERTILIZER_PACK=true       - 开启点券购买礼包功能（默认开启）
+ *   FERTILIZER_PACK_BUY_DAILY_LIMIT=0   - 每日最多购买礼包次数（0 不限，默认 0）
  *   FERTILIZER_PACK_BUY_AMOUNT=1        - 每次购买数量（默认 1）
  *   FERTILIZER_PACK_TARGET_STOCK=0      - 背包礼包目标库存，达到后停止购买（0 不限，默认 0）
  */
