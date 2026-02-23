@@ -15,6 +15,7 @@
 - **自动浇水** — 检测缺水作物并浇水
 - **自动出售** — 每分钟自动出售仓库中的果实
 - **化肥自动化** — 自动开启背包中的化肥礼包，并使用多余的化肥道具以填充容器（需配置开启）
+- **点券购买化肥礼包** — 点券余额充足时自动在商城购买化肥礼包，支持每日限购、冷却控制（需配置开启）
 
 ### 好友农场
 - **好友巡查** — 自动巡查好友农场
@@ -88,12 +89,16 @@ node client.js --code <code> --interval 5 --friend-interval 2
 |------|------|--------|
 | `LOGIN_CODE` | 代替--code 小程序登录凭证 | — |
 | `HEROKU_EXTRA_ARGS` | 代替额外参数（`--interval 1 --friend-interval 30`） | — |
-| `ENABLE_STEAL` | 偷菜 | true |
+| `ENABLE_STEAL` | 偷菜 | false |
 | `MIAO_ID` | 喵通知ID | — |
-| `AUTO_UPGRADE_LAND` | 自动升级土地 | false |
-| `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | false |
+| `AUTO_UPGRADE_LAND` | 自动升级土地 | true |
+| `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | true |
 | `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 0 |
 | `FERTILIZER_PACK_DAILY_LIMIT` | 每日最多开启礼包数（0 = 不限） | 0 |
+| `AUTO_BUY_FERTILIZER_PACK` | 用点券自动购买化肥礼包 | true |
+| `FERTILIZER_PACK_BUY_DAILY_LIMIT` | 每日最多购买化肥礼包次数（0 = 不限） | 5 |
+| `FERTILIZER_PACK_BUY_AMOUNT` | 每次购买化肥礼包数量 | 1 |
+| `FERTILIZER_PACK_TARGET_STOCK` | 背包礼包目标库存，达到此数量后停止购买（0 = 不限） | 0 |
 
 ### 邀请码功能（微信环境）
 
