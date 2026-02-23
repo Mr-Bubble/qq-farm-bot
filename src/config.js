@@ -25,6 +25,15 @@ const CONFIG = {
     fertilizerTargetCount: parseInt(process.env.FERTILIZER_TARGET_COUNT) || 0,
     // 每日最多自动开启的化肥礼包数量，0 表示不限，默认不限
     fertilizerPackDailyLimit: parseInt(process.env.FERTILIZER_PACK_DAILY_LIMIT) || 0,
+
+    // 点券购买化肥礼包开关：设置为 'true' 才开启，默认关闭
+    autoBuyFertilizerPack: process.env.AUTO_BUY_FERTILIZER_PACK === 'true',
+    // 每日最多购买化肥礼包次数（0 不限），默认 5
+    fertilizerPackBuyDailyLimit: parseInt(process.env.FERTILIZER_PACK_BUY_DAILY_LIMIT) || 5,
+    // 每次购买数量，默认 1
+    fertilizerPackBuyAmount: parseInt(process.env.FERTILIZER_PACK_BUY_AMOUNT) || 1,
+    // 背包礼包目标库存，背包中礼包达到此数量后停止购买（0 表示不限），默认 0
+    fertilizerPackTargetStock: parseInt(process.env.FERTILIZER_PACK_TARGET_STOCK) || 0,
     
     // 喵提醒推送配置：从环境变量读取 MIAO_ID，用于连接失败或code失效时推送通知
     miaoId: process.env.MIAO_ID, 

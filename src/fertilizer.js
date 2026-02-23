@@ -2,13 +2,18 @@
  * 化肥自动化模块
  *
  * 功能：
- *   1. 自动开启背包中的化肥礼包（100003 化肥礼包、100004 有机化肥礼包）
- *   2. 背包中化肥道具数量超过目标阈值时，自动使用多余部分（填充化肥容器）
+ *   1. 用点券自动购买化肥礼包（100003 化肥礼包、100004 有机化肥礼包）（需配置开启）
+ *   2. 自动开启背包中的化肥礼包（100003 化肥礼包、100004 有机化肥礼包）
+ *   3. 背包中化肥道具数量超过目标阈值时，自动使用多余部分（填充化肥容器）
  *
  * 配置（通过环境变量）：
- *   AUTO_USE_FERTILIZER=true        - 开启功能（默认关闭）
- *   FERTILIZER_TARGET_COUNT=0     - 化肥道具保留目标数量（默认 0）
- *   FERTILIZER_PACK_DAILY_LIMIT=0   - 每日最多开启礼包数（0 不限，默认 0）
+ *   AUTO_USE_FERTILIZER=true            - 开启开礼包/使用道具功能（默认关闭）
+ *   FERTILIZER_TARGET_COUNT=0           - 化肥道具保留目标数量（默认 0）
+ *   FERTILIZER_PACK_DAILY_LIMIT=0       - 每日最多开启礼包数（0 不限，默认 0）
+ *   AUTO_BUY_FERTILIZER_PACK=true       - 开启点券购买礼包功能（默认关闭）
+ *   FERTILIZER_PACK_BUY_DAILY_LIMIT=5   - 每日最多购买礼包次数（0 不限，默认 5）
+ *   FERTILIZER_PACK_BUY_AMOUNT=1        - 每次购买数量（默认 1）
+ *   FERTILIZER_PACK_TARGET_STOCK=0      - 背包礼包目标库存，达到后停止购买（0 不限，默认 0）
  */
 
 const { CONFIG } = require('./config');
@@ -25,8 +30,13 @@ const THROTTLE_DELAY_MS = 300;
 const INITIAL_DELAY_MS = 15000;
 /** 定期执行化肥任务的默认间隔（毫秒） */
 const DEFAULT_FERTILIZER_INTERVAL_MS = 3600000; // 1小时
+/** 两次购买尝试之间的最小间隔（毫秒），避免高频请求 */
+const BUY_COOLDOWN_MS = 10 * 60 * 1000; // 10分钟
 
 // ============ 化肥相关物品 ID ============
+
+/** 点券物品 ID */
+const COUPON_ITEM_ID = 1002;
 
 /** 化肥礼包 ID 集合 (type=11, can_use=1) */
 const FERTILIZER_PACK_IDS = new Set([
@@ -54,6 +64,19 @@ const FERTILIZER_ITEM_IDS = new Set([
 /** 当日已开启礼包数（进程生命周期内记录，按日期重置） */
 let dailyPackOpened = 0;
 let dailyPackDate = '';
+
+/** 当日已购买礼包次数（进程生命周期内记录，按日期重置） */
+let dailyPackBought = 0;
+let dailyPackBoughtDate = '';
+
+/** 最后一次购买尝试时间 (ms)，用于冷却控制 */
+let lastBuyAttemptMs = 0;
+
+/** 今日购买暂停原因（点券不足/限购/接口错误等），空字符串表示未暂停 */
+let buyPausedReason = '';
+
+/** 已发现的礼包商品缓存，每日重置（避免每次重复查询商店列表） */
+let cachedPackGoods = null;
 
 /** 定时器 */
 let fertilizerTimer = null;
@@ -90,6 +113,46 @@ async function batchUseItems(items) {
     return types.BatchUseReply.decode(replyBody);
 }
 
+/**
+ * 获取所有商店列表
+ * @returns {Promise<object>} ShopProfilesReply
+ */
+async function getShopProfiles() {
+    const body = types.ShopProfilesRequest.encode(types.ShopProfilesRequest.create({})).finish();
+    const { body: replyBody } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopProfiles', body);
+    return types.ShopProfilesReply.decode(replyBody);
+}
+
+/**
+ * 获取商店商品列表
+ * @param {number} shopId
+ * @returns {Promise<object>} ShopInfoReply
+ */
+async function getShopInfo(shopId) {
+    const body = types.ShopInfoRequest.encode(types.ShopInfoRequest.create({
+        shop_id: toLong(shopId),
+    })).finish();
+    const { body: replyBody } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopInfo', body);
+    return types.ShopInfoReply.decode(replyBody);
+}
+
+/**
+ * 购买商品
+ * @param {number} goodsId
+ * @param {number} num
+ * @param {number} price
+ * @returns {Promise<object>} BuyGoodsReply
+ */
+async function buyGoods(goodsId, num, price) {
+    const body = types.BuyGoodsRequest.encode(types.BuyGoodsRequest.create({
+        goods_id: toLong(goodsId),
+        num: toLong(num),
+        price: toLong(price),
+    })).finish();
+    const { body: replyBody } = await sendMsgAsync('gamepb.shoppb.ShopService', 'BuyGoods', body);
+    return types.BuyGoodsReply.decode(replyBody);
+}
+
 // ============ 核心逻辑 ============
 
 /**
@@ -101,6 +164,227 @@ function resetDailyIfNeeded() {
         dailyPackDate = today;
         dailyPackOpened = 0;
     }
+}
+
+/**
+ * 重置购买每日计数并清除商品缓存（bought_num 每日重置）
+ */
+function resetBuyDailyIfNeeded() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (dailyPackBoughtDate !== today) {
+        dailyPackBoughtDate = today;
+        dailyPackBought = 0;
+        buyPausedReason = '';
+        cachedPackGoods = null; // bought_num 服务端每日重置，需重新查询
+    }
+}
+
+/**
+ * 从背包物品列表中获取点券余额
+ * @param {Array} bagItems
+ * @returns {number}
+ */
+function getCouponBalance(bagItems) {
+    for (const item of bagItems) {
+        if (toNum(item.id) === COUPON_ITEM_ID) {
+            return toNum(item.count);
+        }
+    }
+    return 0;
+}
+
+/**
+ * 从背包物品列表中统计当前礼包数量
+ * @param {Array} bagItems
+ * @returns {number}
+ */
+function getPackStockCount(bagItems) {
+    let total = 0;
+    for (const item of bagItems) {
+        if (FERTILIZER_PACK_IDS.has(toNum(item.id))) {
+            total += toNum(item.count);
+        }
+    }
+    return total;
+}
+
+/**
+ * 遍历所有商店，找到含有化肥礼包的商品信息并缓存
+ * @returns {Promise<Array<{shopId,goodsId,itemId,price,limitCount,boughtNum,itemCount}>>}
+ */
+async function findFertilizerPackGoods() {
+    if (cachedPackGoods !== null) return cachedPackGoods;
+
+    const found = [];
+    try {
+        const profilesReply = await getShopProfiles();
+        const shops = profilesReply.shop_profiles || [];
+        for (const shop of shops) {
+            const shopId = toNum(shop.shop_id);
+            try {
+                const infoReply = await getShopInfo(shopId);
+                for (const goods of (infoReply.goods_list || [])) {
+                    const itemId = toNum(goods.item_id);
+                    if (FERTILIZER_PACK_IDS.has(itemId)) {
+                        found.push({
+                            shopId,
+                            goodsId: toNum(goods.id),
+                            itemId,
+                            price: toNum(goods.price),
+                            limitCount: toNum(goods.limit_count),
+                            boughtNum: toNum(goods.bought_num),
+                            itemCount: toNum(goods.item_count) || 1,
+                        });
+                    }
+                }
+                await sleep(THROTTLE_DELAY_MS);
+            } catch (e) {
+                logWarn('化肥购买', `获取商店 ${shopId} 失败: ${e.message}`);
+            }
+        }
+    } catch (e) {
+        logWarn('化肥购买', `获取商店列表失败: ${e.message}`);
+    }
+
+    cachedPackGoods = found;
+    if (found.length > 0) {
+        const names = found.map(g => {
+            const n = getFertilizerPackName(g.itemId);
+            return `${n}(price=${g.price},limit=${g.limitCount})`;
+        });
+        log('化肥购买', `已找到礼包商品: ${names.join(', ')}`);
+    } else {
+        logWarn('化肥购买', '商城中未找到化肥礼包商品');
+    }
+    return found;
+}
+
+/**
+ * 用点券购买化肥礼包
+ * 包含冷却控制、每日限购、目标库存检查、失败退避等风控逻辑
+ * @param {Array} bagItems - getBagItems() 返回的背包物品列表
+ * @returns {Promise<number>} 本次购买的礼包总数
+ */
+async function buyFertilizerPacks(bagItems) {
+    if (!CONFIG.autoBuyFertilizerPack) return 0;
+
+    resetBuyDailyIfNeeded();
+
+    // 冷却检查：两次购买尝试之间至少间隔 BUY_COOLDOWN_MS
+    const nowMs = Date.now();
+    if (nowMs - lastBuyAttemptMs < BUY_COOLDOWN_MS) {
+        return 0;
+    }
+
+    // 今日暂停检查（点券不足/限购/接口持续失败）
+    if (buyPausedReason) {
+        log('化肥购买', `今日购买已暂停: ${buyPausedReason}`);
+        return 0;
+    }
+
+    // 每日上限检查
+    const dailyLimit = CONFIG.fertilizerPackBuyDailyLimit;
+    if (dailyLimit > 0 && dailyPackBought >= dailyLimit) {
+        log('化肥购买', `今日购买已达上限 (${dailyLimit})，跳过`);
+        return 0;
+    }
+
+    // 目标库存检查
+    const targetStock = CONFIG.fertilizerPackTargetStock;
+    if (targetStock > 0) {
+        const currentStock = getPackStockCount(bagItems);
+        if (currentStock >= targetStock) {
+            log('化肥购买', `背包礼包数量 ${currentStock} 已达目标 ${targetStock}，无需购买`);
+            return 0;
+        }
+    }
+
+    // 记录本次尝试时间（放在余额检查之前，避免点券不足时频繁触发）
+    lastBuyAttemptMs = nowMs;
+
+    // 点券余额
+    const coupon = getCouponBalance(bagItems);
+    log('化肥购买', `当前点券: ${coupon}`);
+
+    // 获取商城礼包商品（含缓存）
+    const packGoods = await findFertilizerPackGoods();
+    if (packGoods.length === 0) {
+        buyPausedReason = '商城无化肥礼包';
+        return 0;
+    }
+
+    let totalBought = 0;
+    const buyAmount = CONFIG.fertilizerPackBuyAmount;
+
+    for (const goods of packGoods) {
+        // 每日上限再次检查
+        if (dailyLimit > 0 && dailyPackBought >= dailyLimit) break;
+
+        const name = getFertilizerPackName(goods.itemId);
+
+        // 服务端限购检查
+        if (goods.limitCount > 0 && goods.boughtNum >= goods.limitCount) {
+            log('化肥购买', `${name} 已达限购 (${goods.boughtNum}/${goods.limitCount})，跳过`);
+            continue;
+        }
+
+        // 计算本次购买数量：不超过每日剩余额度和限购剩余量
+        let toBuy = buyAmount;
+        if (dailyLimit > 0) {
+            toBuy = Math.min(toBuy, dailyLimit - dailyPackBought);
+        }
+        if (goods.limitCount > 0) {
+            toBuy = Math.min(toBuy, goods.limitCount - goods.boughtNum);
+        }
+        if (toBuy <= 0) continue;
+
+        // 点券余额是否足够
+        const totalCost = goods.price * toBuy;
+        if (coupon < totalCost) {
+            logWarn('化肥购买', `点券不足: ${name} 需 ${totalCost}，当前 ${coupon}`);
+            buyPausedReason = `点券不足(需${totalCost},有${coupon})`;
+            break;
+        }
+
+        try {
+            const reply = await buyGoods(goods.goodsId, toBuy, goods.price);
+
+            // 从回包推断获得礼包数量和消耗点券
+            const getItems = reply.get_items || [];
+            const gotCountFromReply = getItems.reduce((s, i) => {
+                if (toNum(i.id) === goods.itemId) return s + toNum(i.count);
+                return s;
+            }, 0);
+            const gotCount = gotCountFromReply || (() => {
+                logWarn('化肥购买', `${name} 回包 get_items 为空，以预期数量 ${toBuy * goods.itemCount} 计`);
+                return toBuy * goods.itemCount;
+            })();
+
+            const costItems = reply.cost_items || [];
+            const costFromReply = costItems.reduce((s, i) => {
+                if (toNum(i.id) === COUPON_ITEM_ID) return s + toNum(i.count);
+                return s;
+            }, 0);
+            const costCoupons = costFromReply || (() => {
+                logWarn('化肥购买', `${name} 回包 cost_items 为空，以预期点券 ${totalCost} 计`);
+                return totalCost;
+            })();
+
+            dailyPackBought += toBuy;
+            totalBought += toBuy;
+            goods.boughtNum += toBuy; // 更新本地缓存
+
+            log('化肥购买', `购买 ${name}x${toBuy}，消耗点券 ${costCoupons}，获得礼包 ${gotCount} 个（今日已购 ${dailyPackBought}）`);
+
+            await sleep(THROTTLE_DELAY_MS);
+        } catch (e) {
+            logWarn('化肥购买', `购买 ${name} 失败: ${e.message}`);
+            buyPausedReason = `购买失败: ${e.message}`;
+            break;
+        }
+    }
+
+    return totalBought;
 }
 
 /**
@@ -135,7 +419,7 @@ async function openFertilizerPacks(bagItems) {
     if (packs.length === 0) return 0;
 
     const names = packs.map(p => {
-        const name = p.item_id === 100003 ? '化肥礼包' : '有机化肥礼包';
+        const name = getFertilizerPackName(p.item_id);
         return `${name}x${p.count}`;
     });
 
@@ -258,6 +542,13 @@ function getItemHours(itemId) {
     return map[itemId] || '?';
 }
 
+/**
+ * 根据礼包物品 ID 返回可读名称
+ */
+function getFertilizerPackName(itemId) {
+    return itemId === 100003 ? '化肥礼包' : '有机化肥礼包';
+}
+
 // ============ 对外主入口 ============
 
 /**
@@ -265,16 +556,31 @@ function getItemHours(itemId) {
  * 异常全部捕获，不中断主流程。
  */
 async function runFertilizerTask() {
-    if (!CONFIG.autoUseFertilizer) return;
+    if (!CONFIG.autoUseFertilizer && !CONFIG.autoBuyFertilizerPack) return;
 
     try {
         const bagReply = await getBag();
         const items = getBagItems(bagReply);
 
-        const packsOpened = await openFertilizerPacks(items);
+        // 1. 先用点券购买化肥礼包（若启用）
+        await buyFertilizerPacks(items);
 
-        // 若开了礼包，重新获取背包以拿到最新道具数量
+        if (!CONFIG.autoUseFertilizer) return;
+
+        // 2. 刷新背包（购买后背包可能变化）
         let latestItems = items;
+        if (CONFIG.autoBuyFertilizerPack) {
+            try {
+                const freshBag = await getBag();
+                latestItems = getBagItems(freshBag);
+            } catch (e) {
+                logWarn('化肥', `刷新背包失败: ${e.message}，使用旧数据继续`);
+            }
+        }
+
+        const packsOpened = await openFertilizerPacks(latestItems);
+
+        // 3. 若开了礼包，重新获取背包以拿到最新道具数量
         if (packsOpened > 0) {
             try {
                 const freshBag = await getBag();
@@ -295,7 +601,7 @@ async function runFertilizerTask() {
  * @param {number} intervalMs - 间隔毫秒数（默认 1 小时）
  */
 function startFertilizerLoop(intervalMs = DEFAULT_FERTILIZER_INTERVAL_MS) {
-    if (!CONFIG.autoUseFertilizer) return;
+    if (!CONFIG.autoUseFertilizer && !CONFIG.autoBuyFertilizerPack) return;
     if (fertilizerTimer) return;
 
     // 延迟首次执行（等登录流程稳定）
@@ -313,6 +619,7 @@ function stopFertilizerLoop() {
         clearInterval(fertilizerTimer);
         fertilizerTimer = null;
     }
+    cachedPackGoods = null; // 重置商品缓存，重连后重新查询
 }
 
 // ============ 纯函数（可单独测试）============
@@ -374,6 +681,9 @@ module.exports = {
     // 纯函数（测试/调试用）
     identifyFertilizerPacks,
     calcFertilizerItemUsage,
+    getCouponBalance,
+    getPackStockCount,
     FERTILIZER_PACK_IDS,
     FERTILIZER_ITEM_IDS,
+    COUPON_ITEM_ID,
 };

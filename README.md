@@ -15,6 +15,7 @@
 - **自动浇水** — 检测缺水作物并浇水
 - **自动出售** — 每分钟自动出售仓库中的果实
 - **化肥自动化** — 自动开启背包中的化肥礼包，并使用多余的化肥道具以填充容器（需配置开启）
+- **点券购买化肥礼包** — 点券余额充足时自动在商城购买化肥礼包，支持每日限购、冷却控制（需配置开启）
 
 ### 好友农场
 - **好友巡查** — 自动巡查好友农场
@@ -94,6 +95,10 @@ node client.js --code <code> --interval 5 --friend-interval 2
 | `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | false |
 | `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 0 |
 | `FERTILIZER_PACK_DAILY_LIMIT` | 每日最多开启礼包数（0 = 不限） | 0 |
+| `AUTO_BUY_FERTILIZER_PACK` | 用点券自动购买化肥礼包 | false |
+| `FERTILIZER_PACK_BUY_DAILY_LIMIT` | 每日最多购买化肥礼包次数（0 = 不限） | 5 |
+| `FERTILIZER_PACK_BUY_AMOUNT` | 每次购买化肥礼包数量 | 1 |
+| `FERTILIZER_PACK_TARGET_STOCK` | 背包礼包目标库存，达到此数量后停止购买（0 = 不限） | 0 |
 
 ### 邀请码功能（微信环境）
 
