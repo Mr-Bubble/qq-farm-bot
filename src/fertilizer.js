@@ -71,6 +71,11 @@ const NORMAL_CONTAINER_ID = 1011;
 /** 有机化肥容器道具 ID */
 const ORGANIC_CONTAINER_ID = 1012;
 
+// ============ 商城化肥礼包商品 ID ============
+
+/** 商城中普通化肥礼包的 goods_id（MallService） */
+const NORMAL_FERTILIZER_MALL_GOODS_ID = 1011;
+
 /** 普通化肥道具 ID -> 每个道具填充的小时数 */
 const NORMAL_FERTILIZER_ITEM_HOURS = new Map([
     [80001, 1], [80002, 4], [80003, 8], [80004, 12],
@@ -174,6 +179,97 @@ async function buyGoods(goodsId, num, price) {
     return types.BuyGoodsReply.decode(replyBody);
 }
 
+/**
+ * 调用 MallService.GetMallListBySlotType 获取商城商品列表
+ * @param {number} slotType - 商城类型（默认 1）
+ * @returns {Promise<Array<object>>} 解码后的 MallGoods 数组
+ */
+async function getMallGoodsList(slotType = 1) {
+    const body = types.GetMallListBySlotTypeRequest.encode(
+        types.GetMallListBySlotTypeRequest.create({ slot_type: Number(slotType) || 1 }),
+    ).finish();
+    const { body: replyBody } = await sendMsgAsync('gamepb.mallpb.MallService', 'GetMallListBySlotType', body);
+    const resp = types.GetMallListBySlotTypeResponse.decode(replyBody);
+    const raw = Array.isArray(resp && resp.goods_list) ? resp.goods_list : [];
+    const goods = [];
+    for (const b of raw) {
+        try {
+            goods.push(types.MallGoods.decode(b));
+        } catch (_) {
+            // 单条解码失败时跳过
+        }
+    }
+    return goods;
+}
+
+/**
+ * 调用 MallService.Purchase 购买商城商品
+ * @param {number} goodsId
+ * @param {number} count
+ * @returns {Promise<object>} PurchaseResponse
+ */
+async function purchaseMallGoods(goodsId, count = 1) {
+    const body = types.PurchaseRequest.encode(types.PurchaseRequest.create({
+        goods_id: Number(goodsId) || 0,
+        count: Number(count) || 1,
+    })).finish();
+    const { body: replyBody } = await sendMsgAsync('gamepb.mallpb.MallService', 'Purchase', body);
+    return types.PurchaseResponse.decode(replyBody);
+}
+
+/**
+ * 解析 MallGoods.price 字节字段中的点券价格
+ * price 字段可能是 bytes（序列化 protobuf 数据），从中读取 field=2 的 varint
+ * @param {Buffer|Uint8Array|number|null} priceField
+ * @returns {number} 点券价格（非负整数）
+ */
+function parseMallPriceValue(priceField) {
+    if (priceField == null) return 0;
+    if (typeof priceField === 'number') return Math.max(0, Math.floor(priceField));
+    const bytes = Buffer.isBuffer(priceField) ? priceField : Buffer.from(priceField || []);
+    if (!bytes.length) return 0;
+    // 从序列化的 bytes 中扫描 varint 字段，取 field_number=2 的值作为价格
+    let idx = 0;
+    let parsed = 0;
+    while (idx < bytes.length) {
+        const key = bytes[idx++];
+        const field = key >> 3;
+        const wire = key & 0x07;
+        if (wire === 0) {
+            // varint
+            let val = 0;
+            let shift = 0;
+            while (idx < bytes.length) {
+                const b = bytes[idx++];
+                val |= (b & 0x7f) << shift;
+                if ((b & 0x80) === 0) break;
+                shift += 7;
+            }
+            if (field === 2) parsed = val;
+        } else if (wire === 1) {
+            // 64-bit: skip 8 bytes
+            idx += 8;
+        } else if (wire === 2) {
+            // length-delimited: skip length + bytes
+            let len = 0;
+            let shift = 0;
+            while (idx < bytes.length) {
+                const b = bytes[idx++];
+                len |= (b & 0x7f) << shift;
+                if ((b & 0x80) === 0) break;
+                shift += 7;
+            }
+            idx += len;
+        } else if (wire === 5) {
+            // 32-bit: skip 4 bytes
+            idx += 4;
+        } else {
+            break; // unknown wire type, stop parsing
+        }
+    }
+    return Math.max(0, Math.floor(parsed || 0));
+}
+
 // ============ 核心逻辑 ============
 
 /**
@@ -230,7 +326,27 @@ function getPackStockCount(bagItems) {
 }
 
 /**
- * 遍历所有商店，找到含有化肥礼包的商品信息并缓存
+ * 通过 MallService 查找化肥礼包商品（goods_id == NORMAL_FERTILIZER_MALL_GOODS_ID）
+ * @returns {Promise<{goodsId:number, price:number, name:string}|null>}
+ */
+async function findFertilizerMallGoods() {
+    try {
+        const goodsList = await getMallGoodsList(1);
+        const goods = goodsList.find(g => Number(g && g.goods_id) === NORMAL_FERTILIZER_MALL_GOODS_ID);
+        if (!goods) return null;
+        return {
+            goodsId: Number(goods.goods_id),
+            price: parseMallPriceValue(goods.price),
+            name: goods.name || '化肥礼包',
+        };
+    } catch (e) {
+        logWarn('化肥购买', `MallService 查询商品失败: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * 遍历所有商店，找到含有化肥礼包的商品信息并缓存（旧逻辑，作为兜底）
  * @returns {Promise<Array<{shopId,goodsId,itemId,price,limitCount,boughtNum,itemCount}>>}
  */
 async function findFertilizerPackGoods() {
@@ -273,15 +389,15 @@ async function findFertilizerPackGoods() {
             const n = getFertilizerPackName(g.itemId);
             return `${n}(price=${g.price},limit=${g.limitCount})`;
         });
-        log('化肥购买', `已找到礼包商品: ${names.join(', ')}`);
+        log('化肥购买', `[兜底] 已找到礼包商品: ${names.join(', ')}`);
     } else {
-        logWarn('化肥购买', '商城中未找到化肥礼包商品');
+        logWarn('化肥购买', '[兜底] 商城中未找到化肥礼包商品');
     }
     return found;
 }
 
 /**
- * 用点券购买化肥礼包
+ * 用点券购买化肥礼包（优先使用 MallService，失败时兜底 ShopService）
  * 包含冷却控制、每日限购、目标库存检查、失败退避等风控逻辑
  * @param {Array} bagItems - getBagItems() 返回的背包物品列表
  * @returns {Promise<number>} 本次购买的礼包总数
@@ -327,7 +443,53 @@ async function buyFertilizerPacks(bagItems) {
     const coupon = getCouponBalance(bagItems);
     log('化肥购买', `当前点券: ${coupon}`);
 
-    // 获取商城礼包商品（含缓存）
+    // ── 主路径：MallService ──
+    const mallGoods = await findFertilizerMallGoods();
+    if (mallGoods) {
+        const { goodsId, price, name } = mallGoods;
+        log('化肥购买', `MallService 找到商品: ${name}(goods_id=${goodsId}, price=${price})`);
+
+        const buyAmount = CONFIG.fertilizerPackBuyAmount;
+        let toBuy = buyAmount;
+        if (dailyLimit > 0) {
+            toBuy = Math.min(toBuy, dailyLimit - dailyPackBought);
+        }
+        if (toBuy <= 0) return 0;
+
+        // 点券余额检查（price=0 时跳过，表示免费或无法解析价格）
+        if (price > 0) {
+            const totalCost = price * toBuy;
+            if (coupon < totalCost) {
+                logWarn('化肥购买', `点券不足: ${name} 需 ${totalCost}，当前 ${coupon}`);
+                buyPausedReason = `点券不足(需${totalCost},有${coupon})`;
+                return 0;
+            }
+        }
+
+        try {
+            const reply = await purchaseMallGoods(goodsId, toBuy);
+            const gotCount = Number(reply && reply.count) || toBuy;
+            dailyPackBought += toBuy;
+            log('化肥购买', `购买 ${name}x${toBuy}，获得礼包 ${gotCount} 个（今日已购 ${dailyPackBought}）`);
+            return toBuy;
+        } catch (e) {
+            const msg = String((e && e.message) || '');
+            logWarn('化肥购买', `MallService 购买失败: ${msg}`);
+            if (msg.includes('余额不足') || msg.includes('点券不足') || msg.includes('code=1000019')) {
+                buyPausedReason = `点券不足: ${msg}`;
+                return 0;
+            }
+            if (msg.includes('限购') || msg.includes('code=1000020')) {
+                buyPausedReason = `限购已满: ${msg}`;
+                return 0;
+            }
+            logWarn('化肥购买', '尝试兜底 ShopService 购买路径');
+        }
+    } else {
+        logWarn('化肥购买', `MallService 中未找到 goods_id=${NORMAL_FERTILIZER_MALL_GOODS_ID} 的化肥礼包，尝试兜底`);
+    }
+
+    // ── 兜底路径：ShopService ──
     const packGoods = await findFertilizerPackGoods();
     if (packGoods.length === 0) {
         buyPausedReason = '商城无化肥礼包';
@@ -758,10 +920,12 @@ module.exports = {
     getContainerHoursFromBagItems,
     getFertilizerItemTypeAndHours,
     isFertilizerContainerFullError,
+    parseMallPriceValue,
     FERTILIZER_PACK_IDS,
     FERTILIZER_ITEM_IDS,
     COUPON_ITEM_ID,
     FERTILIZER_CONTAINER_LIMIT_HOURS,
     NORMAL_CONTAINER_ID,
     ORGANIC_CONTAINER_ID,
+    NORMAL_FERTILIZER_MALL_GOODS_ID,
 };

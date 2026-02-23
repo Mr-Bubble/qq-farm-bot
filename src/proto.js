@@ -24,6 +24,7 @@ async function loadProto() {
         path.join(protoDir, 'notifypb.proto'),
         path.join(protoDir, 'taskpb.proto'),
         path.join(protoDir, 'itempb.proto'),
+        path.join(protoDir, 'mallpb.proto'),
     ], { keepCase: true });
 
     // 网关
@@ -104,6 +105,13 @@ async function loadProto() {
     types.ClaimTaskRewardReply = root.lookupType('gamepb.taskpb.ClaimTaskRewardReply');
     types.BatchClaimTaskRewardRequest = root.lookupType('gamepb.taskpb.BatchClaimTaskRewardRequest');
     types.BatchClaimTaskRewardReply = root.lookupType('gamepb.taskpb.BatchClaimTaskRewardReply');
+
+    // 商城
+    types.GetMallListBySlotTypeRequest = root.lookupType('gamepb.mallpb.GetMallListBySlotTypeRequest');
+    types.GetMallListBySlotTypeResponse = root.lookupType('gamepb.mallpb.GetMallListBySlotTypeResponse');
+    types.MallGoods = root.lookupType('gamepb.mallpb.MallGoods');
+    types.PurchaseRequest = root.lookupType('gamepb.mallpb.PurchaseRequest');
+    types.PurchaseResponse = root.lookupType('gamepb.mallpb.PurchaseResponse');
 
     // 服务器推送通知
     types.LandsNotify = root.lookupType('gamepb.plantpb.LandsNotify');
