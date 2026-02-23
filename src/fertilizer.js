@@ -38,7 +38,7 @@ const BATCH_USE_SLEEP_MS = 100;
 // ============ 化肥相关物品 ID ============
 
 /** 点券物品 ID */
-const COUPON_ITEM_ID = 1002;
+const COUPON_ITEM_ID = 1003;
 
 /** 化肥礼包 ID 集合 (type=11, can_use=1) */
 const FERTILIZER_PACK_IDS = new Set([
@@ -74,7 +74,7 @@ const ORGANIC_CONTAINER_ID = 1012;
 // ============ 商城化肥礼包商品 ID ============
 
 /** 商城中普通化肥礼包的 goods_id（MallService） */
-const NORMAL_FERTILIZER_MALL_GOODS_ID = 100003;
+const NORMAL_FERTILIZER_MALL_GOODS_ID = 1003;
 
 /** 普通化肥道具 ID -> 每个道具填充的小时数 */
 const NORMAL_FERTILIZER_ITEM_HOURS = new Map([
@@ -187,7 +187,7 @@ async function buyGoods(goodsId, num, price) {
 async function getMallGoodsList(slotType = 1) {
     const body = types.GetMallListBySlotTypeRequest.encode(
         types.GetMallListBySlotTypeRequest.create({ slot_type: Number(slotType) || 1 }),
-    ).finish();
+    )。finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.mallpb.MallService', 'GetMallListBySlotType', body);
     const resp = types.GetMallListBySlotTypeResponse.decode(replyBody);
     const raw = Array.isArray(resp && resp.goods_list) ? resp.goods_list : [];
@@ -366,7 +366,7 @@ async function findFertilizerPackGoods() {
                         found.push({
                             shopId,
                             goodsId: toNum(goods.id),
-                            itemId,
+                            itemId，
                             price: toNum(goods.price),
                             limitCount: toNum(goods.limit_count),
                             boughtNum: toNum(goods.bought_num),
