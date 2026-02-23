@@ -187,7 +187,7 @@ async function buyGoods(goodsId, num, price) {
 async function getMallGoodsList(slotType = 1) {
     const body = types.GetMallListBySlotTypeRequest.encode(
         types.GetMallListBySlotTypeRequest.create({ slot_type: Number(slotType) || 1 }),
-    )。finish();
+    ).finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.mallpb.MallService', 'GetMallListBySlotType', body);
     const resp = types.GetMallListBySlotTypeResponse.decode(replyBody);
     const raw = Array.isArray(resp && resp.goods_list) ? resp.goods_list : [];
@@ -366,7 +366,7 @@ async function findFertilizerPackGoods() {
                         found.push({
                             shopId,
                             goodsId: toNum(goods.id),
-                            itemId，
+                            itemId,
                             price: toNum(goods.price),
                             limitCount: toNum(goods.limit_count),
                             boughtNum: toNum(goods.bought_num),
