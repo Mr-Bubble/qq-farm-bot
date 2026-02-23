@@ -89,7 +89,7 @@ node client.js --code <code> --interval 5 --friend-interval 2
 |------|------|--------|
 | `LOGIN_CODE` | 代替--code 小程序登录凭证 | — |
 | `HEROKU_EXTRA_ARGS` | 代替额外参数（`--interval 1 --friend-interval 30`） | — |
-| `ENABLE_STEAL` | 偷菜 | true |
+| `ENABLE_STEAL` | 偷菜 | false |
 | `MIAO_ID` | 喵通知ID | — |
 | `AUTO_UPGRADE_LAND` | 自动升级土地 | true |
 | `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | true |
