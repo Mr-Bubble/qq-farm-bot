@@ -38,7 +38,7 @@ const BATCH_USE_SLEEP_MS = 100;
 // ============ 化肥相关物品 ID ============
 
 /** 点券物品 ID */
-const COUPON_ITEM_ID = 1003;
+const COUPON_ITEM_ID = 1002;
 
 /** 化肥礼包 ID 集合 (type=11, can_use=1) */
 const FERTILIZER_PACK_IDS = new Set([
