@@ -74,7 +74,7 @@ const ORGANIC_CONTAINER_ID = 1012;
 // ============ 商城化肥礼包商品 ID ============
 
 /** 商城中普通化肥礼包的 goods_id（MallService） */
-const NORMAL_FERTILIZER_MALL_GOODS_ID = 100003;
+const  = 100003;
 
 /** 普通化肥道具 ID -> 每个道具填充的小时数 */
 const NORMAL_FERTILIZER_ITEM_HOURS = new Map([
@@ -337,7 +337,7 @@ async function findFertilizerMallGoods() {
         return {
             goodsId: Number(goods.goods_id),
             price: parseMallPriceValue(goods.price),
-            name: goods.name || '化肥礼包',
+            name: goods.name || '10小时化肥',
         };
     } catch (e) {
         logWarn('化肥购买', `MallService 查询商品失败: ${e.message}`);
