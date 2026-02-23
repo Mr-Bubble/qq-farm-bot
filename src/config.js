@@ -16,12 +16,12 @@ const CONFIG = {
     // Heroku Config Vars 配置：读取 ENABLE_STEAL，如果不设置或设置为 'true' 则开启，设置为 'false' 则关闭
     enableSteal: process.env.ENABLE_STEAL !== 'false',
 
-    // 土地自动升级开关：设置为 'true' 才开启，默认关闭
+    // 土地自动升级开关：设置为 'true' 才开启，默认开启
     autoUpgradeLand: process.env.AUTO_UPGRADE_LAND === 'true',
 
-    // 化肥自动化开关：设置为 'true' 才开启，默认关闭
+    // 化肥自动化开关：设置为 'true' 才开启，默认开启
     autoUseFertilizer: process.env.AUTO_USE_FERTILIZER === 'true',
-    // 化肥道具保留目标数量：背包中化肥道具超过此数时自动使用多余部分（填充容器），默认 100
+    // 化肥道具保留目标数量：背包中化肥道具超过此数时自动使用多余部分（填充容器），默认 0
     fertilizerTargetCount: parseInt(process.env.FERTILIZER_TARGET_COUNT) || 0,
     // 每日最多自动开启的化肥礼包数量，0 表示不限，默认不限
     fertilizerPackDailyLimit: parseInt(process.env.FERTILIZER_PACK_DAILY_LIMIT) || 0,
