@@ -92,7 +92,7 @@ node client.js --code <code> --interval 5 --friend-interval 2
 | `MIAO_ID` | 喵通知ID | — |
 | `AUTO_UPGRADE_LAND` | 自动升级土地 | false |
 | `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | false |
-| `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 100 |
+| `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 0 |
 | `FERTILIZER_PACK_DAILY_LIMIT` | 每日最多开启礼包数（0 = 不限） | 0 |
 
 ### 邀请码功能（微信环境）
