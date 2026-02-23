@@ -185,7 +185,8 @@ node tools/calc-exp-yield.js --input tools/seed-shop-merged-export.json
 │   ├── visitpb.proto      # 好友农场拜访消息
 │   ├── notifypb.proto     # 服务器推送通知消息
 │   ├── taskpb.proto       # 任务系统消息
-│   └── itempb.proto       # 背包/仓库/物品消息
+│   ├── itempb.proto       # 背包/仓库/物品消息
+│   └── mallpb.proto       # 商城消息 (MallService.GetMallListBySlotType/Purchase)
 ├── gameConfig/            # 游戏配置数据
 │   ├── RoleLevel.json     # 等级经验表
 │   └── Plant.json         # 植物数据（名称/生长时间/经验等）
