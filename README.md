@@ -91,7 +91,7 @@ node client.js --code <code> --interval 5 --friend-interval 2
 | `HEROKU_EXTRA_ARGS` | 代替额外参数（`--interval 1 --friend-interval 30`） | — |
 | `ENABLE_STEAL` | 偷菜 | true |
 | `MIAO_ID` | 喵通知ID | — |
-| `AUTO_UPGRADE_LAND` | 自动升级土地 | false |
+| `AUTO_UPGRADE_LAND` | 自动升级土地 | true |
 | `AUTO_USE_FERTILIZER` | 化肥自动化（开礼包/消耗多余道具） | true |
 | `FERTILIZER_TARGET_COUNT` | 化肥道具保留目标数量（超出部分自动使用） | 0 |
 | `FERTILIZER_PACK_DAILY_LIMIT` | 每日最多开启礼包数（0 = 不限） | 0 |
