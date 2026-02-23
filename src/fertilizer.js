@@ -32,6 +32,8 @@ const INITIAL_DELAY_MS = 15000;
 const DEFAULT_FERTILIZER_INTERVAL_MS = 3600000; // 1小时
 /** 两次购买尝试之间的最小间隔（毫秒），避免高频请求 */
 const BUY_COOLDOWN_MS = 10 * 60 * 1000; // 10分钟
+/** 按条目批量使用时每条目之间的节流延迟（毫秒） */
+const BATCH_USE_SLEEP_MS = 100;
 
 // ============ 化肥相关物品 ID ============
 
@@ -57,6 +59,25 @@ const FERTILIZER_ITEM_IDS = new Set([
     80012, // 有机化肥(4小时)
     80013, // 有机化肥(8小时)
     80014, // 有机化肥(12小时)
+]);
+
+// ============ 化肥容器相关 ============
+
+/** 化肥容器小时数上限（达到后不再继续填充） */
+const FERTILIZER_CONTAINER_LIMIT_HOURS = 990;
+
+/** 普通化肥容器道具 ID（背包中计量单位为秒） */
+const NORMAL_CONTAINER_ID = 1011;
+/** 有机化肥容器道具 ID */
+const ORGANIC_CONTAINER_ID = 1012;
+
+/** 普通化肥道具 ID -> 每个道具填充的小时数 */
+const NORMAL_FERTILIZER_ITEM_HOURS = new Map([
+    [80001, 1], [80002, 4], [80003, 8], [80004, 12],
+]);
+/** 有机化肥道具 ID -> 每个道具填充的小时数 */
+const ORGANIC_FERTILIZER_ITEM_HOURS = new Map([
+    [80011, 1], [80012, 4], [80013, 8], [80014, 12],
 ]);
 
 // ============ 内部状态 ============
@@ -389,7 +410,7 @@ async function buyFertilizerPacks(bagItems) {
 
 /**
  * 开启背包中的化肥礼包
- * 优先批量使用；失败时回退到逐个使用（每次 sleep 300ms 节流）
+ * 按条目逐个 BatchUse（每条目之间 sleep 节流），避免批量一次性请求造成卡死
  * @param {Array} bagItems - getBagItems() 返回的背包物品列表
  * @returns {Promise<number>} 本次开启的礼包总数
  */
@@ -418,48 +439,32 @@ async function openFertilizerPacks(bagItems) {
 
     if (packs.length === 0) return 0;
 
-    const names = packs.map(p => {
-        const name = getFertilizerPackName(p.item_id);
-        return `${name}x${p.count}`;
-    });
-
     let totalOpened = 0;
 
-    // 优先批量使用
-    try {
-        await batchUseItems(packs);
-        totalOpened = packs.reduce((s, p) => s + p.count, 0);
-        dailyPackOpened += totalOpened;
-        log('化肥', `批量开启礼包: ${names.join(', ')}，共 ${totalOpened} 个`);
-        return totalOpened;
-    } catch (batchErr) {
-        logWarn('化肥', `批量开启失败 (${batchErr.message})，回退到逐个开启`);
-    }
-
-    // 回退：逐个使用
+    // 按条目逐个 BatchUse，每条目之间 sleep 避免请求风暴
     for (const pack of packs) {
-        for (let i = 0; i < pack.count; i++) {
-            if (dailyLimit > 0 && dailyPackOpened >= dailyLimit) break;
-            try {
-                await useItem(pack.item_id, 1);
-                dailyPackOpened++;
-                totalOpened++;
-            } catch (e) {
-                logWarn('化肥', `开启礼包 ${pack.item_id} 失败: ${e.message}`);
-            }
-            await sleep(THROTTLE_DELAY_MS);
+        if (dailyLimit > 0 && dailyPackOpened >= dailyLimit) break;
+        const name = getFertilizerPackName(pack.item_id);
+        try {
+            await batchUseItems([{ item_id: pack.item_id, count: pack.count }]);
+            dailyPackOpened += pack.count;
+            totalOpened += pack.count;
+            log('化肥', `开启礼包 ${name}x${pack.count}`);
+        } catch (e) {
+            logWarn('化肥', `开启礼包 ${name} 失败: ${e.message}`);
         }
+        await sleep(BATCH_USE_SLEEP_MS);
     }
 
     if (totalOpened > 0) {
-        log('化肥', `逐个开启礼包完成，共 ${totalOpened} 个`);
+        log('化肥', `礼包开启完成，共 ${totalOpened} 个`);
     }
     return totalOpened;
 }
 
 /**
  * 使用多余的化肥道具（当道具总数 > 目标阈值时，使用多余部分以填充容器）
- * 优先批量使用；失败时回退到逐个使用（每次 sleep 300ms 节流）
+ * 按条目逐个 BatchUse（每条目之间 sleep 节流），检查容器上限避免反复失败
  * @param {Array} bagItems - getBagItems() 返回的背包物品列表
  * @returns {Promise<number>} 本次使用的道具总数
  */
@@ -487,6 +492,9 @@ async function useSurplusFertilizerItems(bagItems) {
     const surplus = totalItems - targetCount;
     log('化肥', `道具总数 ${totalItems}，超出目标 ${targetCount}，将使用 ${surplus} 个`);
 
+    // 读取容器当前容量
+    const containerHours = getContainerHoursFromBagItems(bagItems);
+
     // 构建要使用的列表（从数量最多的先消耗，保持均衡）
     let remaining = surplus;
     const toUse = [];
@@ -497,41 +505,105 @@ async function useSurplusFertilizerItems(bagItems) {
         remaining -= use;
     }
 
-    const names = toUse.map(t => {
-        const hours = getItemHours(t.item_id);
-        const type = t.item_id >= 80011 ? '有机化肥' : '化肥';
-        return `${type}(${hours}h)x${t.count}`;
-    });
-
     let totalUsed = 0;
 
-    // 优先批量使用
-    try {
-        await batchUseItems(toUse);
-        totalUsed = toUse.reduce((s, t) => s + t.count, 0);
-        log('化肥', `批量使用道具: ${names.join(', ')}，共 ${totalUsed} 个`);
-        return totalUsed;
-    } catch (batchErr) {
-        logWarn('化肥', `批量使用道具失败 (${batchErr.message})，回退到逐个使用`);
-    }
-
-    // 回退：逐个使用
+    // 按条目逐个 BatchUse，容器满则跳过，每条目之间 sleep 避免请求风暴
     for (const t of toUse) {
-        for (let i = 0; i < t.count; i++) {
-            try {
-                await useItem(t.item_id, 1);
-                totalUsed++;
-            } catch (e) {
+        const { type, perItemHours } = getFertilizerItemTypeAndHours(t.item_id);
+        let useCount = t.count;
+
+        // 容器上限检查：达到 990h 时跳过；未满时按剩余容量裁剪使用数量
+        if (type === 'normal' || type === 'organic') {
+            const currentHours = type === 'normal' ? containerHours.normal : containerHours.organic;
+            if (currentHours >= FERTILIZER_CONTAINER_LIMIT_HOURS) {
+                const typeName = type === 'normal' ? '普通' : '有机';
+                log('化肥', `${typeName}化肥容器已达到 ${FERTILIZER_CONTAINER_LIMIT_HOURS} 小时上限，跳过填充`);
+                continue;
+            }
+            if (perItemHours > 0) {
+                const remainHours = Math.max(0, FERTILIZER_CONTAINER_LIMIT_HOURS - currentHours);
+                const maxCountByHours = Math.floor(remainHours / perItemHours);
+                useCount = Math.min(useCount, maxCountByHours);
+                if (useCount <= 0) continue;
+            }
+        }
+
+        const hours = getItemHours(t.item_id);
+        const typeName = t.item_id >= 80011 ? '有机化肥' : '化肥';
+        try {
+            await batchUseItems([{ item_id: t.item_id, count: useCount }]);
+            totalUsed += useCount;
+            log('化肥', `使用 ${typeName}(${hours}h)x${useCount}`);
+            // 本地更新容器估算值，避免后续条目重复超量
+            if (type === 'normal' && perItemHours > 0) containerHours.normal += useCount * perItemHours;
+            if (type === 'organic' && perItemHours > 0) containerHours.organic += useCount * perItemHours;
+        } catch (e) {
+            if (isFertilizerContainerFullError(e)) {
+                const cTypeName = type === 'normal' ? '普通' : '有机';
+                log('化肥', `${cTypeName}化肥容器已满，跳过剩余填充`);
+                // 标记容器已满，后续同类道具直接跳过
+                if (type === 'normal') containerHours.normal = FERTILIZER_CONTAINER_LIMIT_HOURS;
+                if (type === 'organic') containerHours.organic = FERTILIZER_CONTAINER_LIMIT_HOURS;
+            } else {
                 logWarn('化肥', `使用道具 ${t.item_id} 失败: ${e.message}`);
             }
-            await sleep(THROTTLE_DELAY_MS);
         }
+        await sleep(BATCH_USE_SLEEP_MS);
     }
 
     if (totalUsed > 0) {
-        log('化肥', `逐个使用道具完成，共 ${totalUsed} 个`);
+        log('化肥', `化肥道具使用完成，共 ${totalUsed} 个`);
     }
     return totalUsed;
+}
+
+/**
+ * 从背包物品列表中读取化肥容器当前小时数
+ * 容器道具在背包中以秒为单位存储
+ * @param {Array} items - getBagItems() 返回的背包物品列表
+ * @returns {{ normal: number, organic: number }} 当前容器小时数
+ */
+function getContainerHoursFromBagItems(items) {
+    let normalSec = 0;
+    let organicSec = 0;
+    for (const it of (items || [])) {
+        const id = toNum(it && it.id);
+        const count = Math.max(0, toNum(it && it.count));
+        if (id === NORMAL_CONTAINER_ID) normalSec = count;
+        if (id === ORGANIC_CONTAINER_ID) organicSec = count;
+    }
+    return {
+        normal: normalSec / 3600,
+        organic: organicSec / 3600,
+    };
+}
+
+/**
+ * 根据化肥道具 ID 判断类型（normal/organic/other）及每个道具对应的填充小时数
+ * @param {number} itemId
+ * @returns {{ type: string, perItemHours: number }}
+ */
+function getFertilizerItemTypeAndHours(itemId) {
+    const id = Number(itemId) || 0;
+    if (NORMAL_FERTILIZER_ITEM_HOURS.has(id)) {
+        return { type: 'normal', perItemHours: NORMAL_FERTILIZER_ITEM_HOURS.get(id) };
+    }
+    if (ORGANIC_FERTILIZER_ITEM_HOURS.has(id)) {
+        return { type: 'organic', perItemHours: ORGANIC_FERTILIZER_ITEM_HOURS.get(id) };
+    }
+    return { type: 'other', perItemHours: 0 };
+}
+
+/**
+ * 判断错误是否为化肥容器已满
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function isFertilizerContainerFullError(err) {
+    const msg = String((err && err.message) || '');
+    return msg.includes('code=1003002')
+        || msg.includes('化肥容器已满')
+        || msg.includes('化肥容器已达到上限');
 }
 
 /**
@@ -683,7 +755,13 @@ module.exports = {
     calcFertilizerItemUsage,
     getCouponBalance,
     getPackStockCount,
+    getContainerHoursFromBagItems,
+    getFertilizerItemTypeAndHours,
+    isFertilizerContainerFullError,
     FERTILIZER_PACK_IDS,
     FERTILIZER_ITEM_IDS,
     COUPON_ITEM_ID,
+    FERTILIZER_CONTAINER_LIMIT_HOURS,
+    NORMAL_CONTAINER_ID,
+    ORGANIC_CONTAINER_ID,
 };
