@@ -436,10 +436,10 @@ async function buyFertilizerPacks(bagItems) {
         }
     }
 
-    // 容器上限检查：普通和有机容器均已达到 990 小时上限时，无需继续购买
+    // 容器上限检查：普通容器已达到 990 小时上限时，无需继续购买
     const containerHours = getContainerHoursFromBagItems(bagItems);
-    if (containerHours.normal >= FERTILIZER_CONTAINER_LIMIT_HOURS && containerHours.organic >= FERTILIZER_CONTAINER_LIMIT_HOURS) {
-        log('化肥购买', `普通(${containerHours.normal}h)和有机(${containerHours.organic}h)容器均已达到 ${FERTILIZER_CONTAINER_LIMIT_HOURS} 小时上限，跳过购买`);
+    if (containerHours.normal >= FERTILIZER_CONTAINER_LIMIT_HOURS) {
+        log('化肥购买', `普通容器(${containerHours.normal}h)已达到 ${FERTILIZER_CONTAINER_LIMIT_HOURS} 小时上限，跳过购买`);
         return 0;
     }
 
