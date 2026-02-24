@@ -8,6 +8,7 @@ const { CONFIG } = require('./config');
 const { types } = require('./proto');
 const { toLong, toNum, syncServerTime, log, logWarn, sendMiaoNotify } = require('./utils');
 const { updateStatusFromLogin, updateStatusGold, updateStatusLevel } = require('./status');
+const { sendBarkNotification } = require('./notify');
 
 // ============ 事件发射器 (用于推送通知) ============
 const networkEvents = new EventEmitter();
@@ -161,6 +162,7 @@ function handleNotify(msg) {
                 const reason = notify.reason_message || '未知';
                 log('推送', `原因: ${reason}`);
                 sendMiaoNotify(`QQ农场被踢下线: ${reason}`);
+                sendBarkNotification({ title: 'QQ农场被踢下线', body: reason, level: 'timeSensitive', group: '掉线通知' });
                 // 触发断线事件，用于自动重连
                 networkEvents.emit('disconnected', { reason: 'kickout', message: reason });
             } catch (e) { }
@@ -337,6 +339,7 @@ function sendLogin(onLoginSuccess) {
             pendingCallbacks.delete(loginSeq);
             log('登录', '超时: 服务器未响应登录请求，将重新扫码登录');
             sendMiaoNotify('QQ农场登录超时，正在重连...');
+            sendBarkNotification({ title: 'QQ农场登录超时', body: '服务器未响应登录请求，正在重连...', level: 'active', group: '错误通知' });
             networkEvents.emit('disconnected', { reason: 'login_timeout', message: '登录超时' });
         }
     }, LOGIN_TIMEOUT_MS);
@@ -346,6 +349,7 @@ function sendLogin(onLoginSuccess) {
         if (err) {
             log('登录', `失败: ${err.message}`);
             sendMiaoNotify(`QQ农场登录失败: ${err.message}`);
+            sendBarkNotification({ title: 'QQ农场登录失败', body: err.message, level: 'active', group: '错误通知' });
             // 触发登录失败事件，用于自动重连
             networkEvents.emit('disconnected', { reason: 'login_failed', message: err.message });
             return;
@@ -473,6 +477,7 @@ function connect(code, onLoginSuccess) {
     ws.on('error', (err) => {
         logWarn('WS', `错误: ${err.message}`);
         sendMiaoNotify(`QQ农场连接错误: ${err.message}`);
+        sendBarkNotification({ title: 'QQ农场连接错误', body: err.message, level: 'active', group: '错误通知' });
         // 触发断线事件，用于自动重连
         networkEvents.emit('disconnected', { reason: 'ws_error', message: err.message });
     });
@@ -501,7 +506,9 @@ function completeLoginBox(landStats) {
         const landLine = landStats
             ? `\n土地: 总${landStats.total}块 | 红:${landStats.red} 黑:${landStats.black} 金:${landStats.gold} | 可升级:${landStats.upgradeCount} 可解锁:${landStats.unlockCount}`
             : '';
-        sendMiaoNotify(_pendingLoginMsg + landLine);
+        const fullMsg = _pendingLoginMsg + landLine;
+        sendMiaoNotify(fullMsg);
+        sendBarkNotification({ title: 'QQ农场登录成功', body: fullMsg, level: 'passive', group: '登录通知' });
         _pendingLoginMsg = null;
     }
     networkEvents.emit('loginBoxComplete');
