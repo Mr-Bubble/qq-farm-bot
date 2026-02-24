@@ -46,6 +46,8 @@ if (!process.argv.includes('--code')) {
   }
 }
 
+const fs = require('fs');
+const path = require('path');
 const { CONFIG } = require('./src/config');
 const { loadProto } = require('./src/proto');
 const { connect, cleanup, getWs, networkEvents } = require('./src/network');
@@ -102,6 +104,27 @@ QQ经典农场 挂机脚本
 }
 
 // ============ 参数解析 ============
+const CODE_FILE = path.join(__dirname, '.farm_code');
+
+function saveCode(code) {
+    try {
+        fs.writeFileSync(CODE_FILE, code, 'utf8');
+    } catch (e) {
+        console.error(`[文件] 保存 code 失败: ${e.message}`);
+    }
+}
+
+function loadSavedCode() {
+    try {
+        if (fs.existsSync(CODE_FILE)) {
+            return fs.readFileSync(CODE_FILE, 'utf8').trim();
+        }
+    } catch (e) {
+        console.error(`[文件] 读取 code 失败: ${e.message}`);
+    }
+    return '';
+}
+
 function parseArgs(args) {
     const options = {
         code: '',
@@ -158,7 +181,17 @@ function calcBackoffDelayMs(attempt) {
 async function startBot(initialOptions) {
     const options = { ...initialOptions };
     
-    // QQ 平台支持扫码登录: 显式 --qr，或未传 --code 时自动触发
+    // 优先从本地读取保存的 code (仅 QQ 平台)
+    if (!options.code && CONFIG.platform === 'qq' && !options.qrLogin && !options.codeProvidedExplicitly) {
+        const savedCode = loadSavedCode();
+        if (savedCode) {
+            options.code = savedCode;
+            options.isSavedCode = true;
+            console.log(`[启动] 使用本地保存的 code=${options.code.substring(0, 8)}...`);
+        }
+    }
+
+    // QQ 平台支持扫码登录: 显式 --qr，或未传 --code 且本地无 code 时自动触发
     if (!options.code && CONFIG.platform === 'qq' && (options.qrLogin || !options.codeProvidedExplicitly)) {
         console.log('[扫码登录] 正在获取二维码...');
         try {
@@ -189,6 +222,11 @@ async function startBot(initialOptions) {
 
     // 连接并登录，登录成功后启动各功能模块
     connect(options.code, async () => {
+        // 登录成功，保存 code
+        if (options.code) {
+            saveCode(options.code);
+        }
+
         // 重置重连计数（登录成功说明一切正常）
         reconnectAttempts = 0;
         loginTimeoutAttempts = 0;
@@ -263,6 +301,19 @@ async function handleDisconnect(event) {
                 return;
             }
         }
+
+        // 如果是使用保存的 code 登录失败，则直接尝试扫码登录，不计入重连次数，也不等待
+        if (event.reason === 'login_failed' && event.message.includes('code=') && event.message.includes('Service.Login')) {
+             console.log('[重连] 保存的 code 可能已失效，尝试扫码重新登录...');
+             isReconnecting = false;
+             try {
+                 await startBot({ qrLogin: true, codeProvidedExplicitly: false });
+                 return;
+             } catch (err) {
+                 console.error(`[重连] 扫码启动失败: ${err.message}`);
+             }
+        }
+
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
             const delayMs = calcBackoffDelayMs(reconnectAttempts);
