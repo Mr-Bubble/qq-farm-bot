@@ -162,7 +162,8 @@ function handleNotify(msg) {
                 const reason = notify.reason_message || '未知';
                 log('推送', `原因: ${reason}`);
                 sendMiaoNotify(`QQ农场被踢下线: ${reason}`);
-                sendBarkNotification({ title: 'QQ农场被踢下线', body: reason, level: 'timeSensitive', group: '掉线通知' });
+                const body = `账号: ${userState.name || '未知'}\n原因: ${reason}`
+                sendBarkNotification({ title: 'QQ农场被踢下线', body: body, level: 'timeSensitive', group: '掉线通知' });
                 // 触发断线事件，用于自动重连
                 networkEvents.emit('disconnected', { reason: 'kickout', message: reason });
             } catch (e) { }
