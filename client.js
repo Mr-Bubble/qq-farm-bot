@@ -205,7 +205,15 @@ async function startBot(initialOptions) {
     if (!options.code && CONFIG.platform === 'qq' && (options.qrLogin || !options.codeProvidedExplicitly)) {
         console.log('[扫码登录] 正在获取二维码...');
         try {
-            options.code = await getQQFarmCodeByScan();
+            // 如果 options 中没有 account，尝试从 network.js 获取当前已登录的用户名
+            if (!options.account) {
+                const { getUserState } = require('./src/network');
+                const userState = getUserState();
+                if (userState && userState.name) {
+                    options.account = userState.name;
+                }
+            }
+            options.code = await getQQFarmCodeByScan(options);
             options.usedQrLogin = true;
             console.log(`[扫码登录] 获取成功，code=${options.code.substring(0, 8)}...`);
         } catch (err) {

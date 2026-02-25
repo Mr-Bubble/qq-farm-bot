@@ -64,19 +64,20 @@ async function getAuthCode(ticket) {
     return response.data.code;
 }
 
-function printQr(url) {
+function printQr(url, accountName) {
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+    const accountTitle = accountName ? `[账号: ${accountName}] ` : '';
     console.log('');
-    console.log('[扫码登录] 请用 QQ 扫描下方二维码确认登录:');
+    console.log(`${accountTitle}[扫码登录] 请用 QQ 扫描下方二维码确认登录:`);
     qrcodeTerminal.generate(url, { small: true });
-    console.log(`[扫码登录] 若二维码显示异常，可直接打开链接: ${qrImageUrl}`);
+    console.log(`${accountTitle}[扫码登录] 若二维码显示异常，可直接打开链接: ${qrImageUrl}`);
     console.log('');
     // 推送二维码链接，方便在服务器（如 Heroku）上无法直接查看日志时也能扫码重连
-    const msg = `QQ农场需要扫码登录，请扫描二维码:\n${qrImageUrl}`;
+    const msg = `${accountTitle}QQ农场需要扫码登录，请扫描二维码:\n${qrImageUrl}`;
     sendMiaoNotify(msg).catch(() => {});
     sendBarkNotification({
-        title: 'QQ农场扫码登录',
-        body: 'QQ农场需要扫码登录，请扫描二维码:',
+        title: `${accountTitle}QQ农场扫码登录`,
+        body: `${accountTitle}QQ农场需要扫码登录，请扫描二维码:`,
         level: 'timeSensitive',
         group: '扫码通知',
         url: qrImageUrl
@@ -86,9 +87,10 @@ function printQr(url) {
 async function getQQFarmCodeByScan(options = {}) {
     const pollIntervalMs = Number(options.pollIntervalMs) > 0 ? Number(options.pollIntervalMs) : 2000;
     const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 180000;
+    const accountName = options.account || '';
 
     const { loginCode, url } = await requestLoginCode();
-    printQr(url);
+    printQr(url, accountName);
 
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
