@@ -7,3 +7,4 @@ game.js
 /game
 logs/
 .env
+.farm_code*
