@@ -321,7 +321,7 @@ async function handleDisconnect(event) {
         }
 
         // 如果是使用保存的 code 登录失败，则直接尝试扫码登录，不计入重连次数，也不等待
-        if (event.reason === 'login_failed' && event.message.includes('code=') && event.message.includes('Service.Login')) {
+        if (event.reason === 'ws_error' && event.message.includes('400')) {
              console.log('[重连] 保存的 code 可能已失效，尝试扫码重新登录...');
              isReconnecting = false;
              try {
