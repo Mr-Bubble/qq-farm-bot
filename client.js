@@ -72,8 +72,8 @@ QQ经典农场 挂机脚本
 ====================
 
 用法:
-  node client.js --code <登录code> [--wx] [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>]
-  node client.js --qr [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>]
+  node client.js --code <登录code> [--wx] [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>] [--account <账号名>]
+  node client.js --qr [--interval <秒>] [--friend-interval <秒>] [--plant <种子ID>] [--account <账号名>]
   node client.js --verify
   node client.js --decode <数据> [--hex] [--gate] [--type <消息类型>]
 
@@ -84,6 +84,7 @@ QQ经典农场 挂机脚本
   --interval          自己农场巡查完成后等待秒数, 默认1秒, 最低1秒
   --friend-interval   好友巡查完成后等待秒数, 默认10秒, 最低1秒
   --plant             指定种植的种子ID (例如: 20002=白萝卜, 20003=胡萝卜)
+  --account           指定账号名，用于区分多账号的本地凭证存储 (例如: --account account1)
   --verify            验证proto定义
   --decode            解码PB数据 (运行 --decode 无参数查看详细帮助)
 
@@ -104,7 +105,13 @@ QQ经典农场 挂机脚本
 }
 
 // ============ 参数解析 ============
-const CODE_FILE = path.join(__dirname, '.farm_code');
+let CODE_FILE = path.join(__dirname, '.farm_code');
+
+function setAccount(accountName) {
+    if (accountName) {
+        CODE_FILE = path.join(__dirname, `.farm_code_${accountName}`);
+    }
+}
 
 function saveCode(code) {
     try {
@@ -138,6 +145,9 @@ function parseArgs(args) {
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--code' && args[i + 1]) {
             options.code = args[++i];
+        } else if (args[i] === '--account' && args[i + 1]) {
+            options.account = args[++i];
+            setAccount(options.account);
         } else if (args[i] === '--qr') {
             options.qrLogin = true;
         } else if (args[i] === '--wx') {
