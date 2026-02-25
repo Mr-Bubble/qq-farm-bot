@@ -37,6 +37,13 @@ async function sendBarkNotification(options) {
             image
         };
 
+        // 过滤掉空值参数
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+                delete payload[key];
+            }
+        });
+
         const response = await axios.post(barkBaseUrl, payload);
         if (response.data.code !== 200) {
             console.error(`[Bark] 发送失败: ${response.data.message || '未知错误'}`);
