@@ -76,11 +76,12 @@ function printQr(url, accountName) {
     const msg = `${accountTitle}QQ农场需要扫码登录，请扫描二维码:\n${qrImageUrl}`;
     sendMiaoNotify(msg).catch(() => {});
     sendBarkNotification({
-        title: `${accountTitle}QQ农场扫码登录`,
+        title: 'QQ农场扫码登录',
         body: `${accountTitle}QQ农场需要扫码登录，请扫描二维码:`,
         level: 'timeSensitive',
         group: '扫码通知',
-        url: qrImageUrl
+        url: qrImageUrl,
+        image: qrImageUrl
     }).catch(() => {});
 }
 

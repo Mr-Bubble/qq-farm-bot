@@ -9,12 +9,14 @@ const { CONFIG } = require('./config');
  * @param {string} [options.level='active'] 通知级别: active, timeSensitive, passive
  * @param {string} [options.group='其他通知'] 分组名称
  * @param {string} [options.url=''] 跳转链接
+ * @param {string} [options.icon=''] 通知图标 URL
+ * @param {string} [options.image=''] 通知图片 URL
  */
 async function sendBarkNotification(options) {
     const key = CONFIG.barkKey;
     if (!key) return;
 
-    const { title, body, level = 'active', group = '其他通知', url = '' } = options;
+    const { title, body, level = 'active', group = '其他通知', url = '', icon = '', image = '' } = options;
 
     try {
         // 提取推送 URL
@@ -30,7 +32,9 @@ async function sendBarkNotification(options) {
             body,
             level,
             group,
-            url
+            url,
+            icon,
+            image
         };
 
         const response = await axios.post(barkBaseUrl, payload);
