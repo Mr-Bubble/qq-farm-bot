@@ -42,7 +42,7 @@ const OP_NAMES = {
 const HELP_ONLY_WITH_EXP = true; // 已更新可用
 
 // 新增配置: 是否启用偷菜功能
-const ENABLE_STEAL = false; 
+const ENABLE_STEAL = CONFIG.enableSteal;
 
 // 配置: 是否启用放虫放草功能
 const ENABLE_PUT_BAD_THINGS = false;  // 无效！！！开启后会多次访问朋友导致被拉黑 请勿更改暂时关闭放虫放草功能
